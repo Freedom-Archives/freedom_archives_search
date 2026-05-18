@@ -1,6 +1,7 @@
 import Article from "@mui/icons-material/Article";
 import BrokenImage from "@mui/icons-material/BrokenImage";
 import HeadphonesTwoTone from "@mui/icons-material/HeadphonesTwoTone";
+import HelpOutline from "@mui/icons-material/HelpOutline";
 import Image from "@mui/icons-material/Image";
 import LanguageTwoTone from "@mui/icons-material/LanguageTwoTone";
 import LibraryBooks from "@mui/icons-material/LibraryBooks";
@@ -24,6 +25,7 @@ const MEDIA_TYPE_ICONS = {
   Video: OndemandVideo,
   Audio: HeadphonesTwoTone,
   Website: LanguageTwoTone,
+  Other: HelpOutline,
 };
 
 export function NotDigitizedThumbnail({ width = 75, sx, ...props }) {
