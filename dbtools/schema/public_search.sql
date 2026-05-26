@@ -31,9 +31,14 @@ CREATE TABLE IF NOT EXISTS collections (
     children jsonb,
     display_order integer,
     parent_collection_id integer,
+    fulltext tsvector,
+    search_text text,
     CONSTRAINT collections_pkey PRIMARY KEY (archive_id, collection_id)
 );
 
+CREATE INDEX IF NOT EXISTS collections_fulltext_idx ON collections USING gin (fulltext);
+
+CREATE INDEX IF NOT EXISTS collections_search_text_idx ON collections USING gin (search_text gin_trgm_ops);
 --
 -- Name: config; Type: TABLE; Schema: -; Owner: -
 --

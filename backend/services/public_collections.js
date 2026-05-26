@@ -1,5 +1,7 @@
 import { KnexService } from "@feathersjs/knex";
 
+import { rankedSearch } from "./common_hooks/rankedSearch.js";
+
 class PublicCollections extends KnexService {
   constructor(options) {
     super({
@@ -25,6 +27,7 @@ export default (function (app) {
       all: [],
     },
     before: {
+      find: [rankedSearch],
       all: [],
       get: [],
     },

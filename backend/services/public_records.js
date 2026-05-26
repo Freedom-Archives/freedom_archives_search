@@ -156,7 +156,7 @@ const searchCollectionTitles = async (context) => {
 
   return await context.app.service("api/public/collections").find({
     query: {
-      $or: [{ title: { $ilike: `%${searchTerm}%` } }, { title: { $fulltext: searchTerm } }],
+      $fullText: searchTerm,
       $select: ["collection_id", "title"],
     },
   });
