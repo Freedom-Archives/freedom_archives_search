@@ -1,0 +1,397 @@
+Plan: 10 to modify.
+
+Summary by type:
+  tables: 3 to modify
+  views: 7 to modify
+
+Tables:
+  ~ _unified_collections
+    ~ child_records (column)
+    ~ children (column)
+    ~ featured_records (column)
+    ~ parent (column)
+  ~ _unified_records
+    ~ children (column)
+    ~ collection (column)
+    ~ continuations (column)
+    ~ media (column)
+    ~ parent (column)
+    ~ siblings (column)
+  ~ collections_snapshots
+    ~ children (column)
+
+Views:
+  ~ collection_summaries
+  ~ collections_list_items_view
+  ~ record_media_view
+  ~ record_summaries
+  ~ records_list_items_view
+  ~ unified_collections
+  ~ unified_records
+
+DDL to be executed:
+--------------------------------------------------
+
+ALTER TABLE _unified_collections ALTER COLUMN child_records TYPE jsonb;
+
+ALTER TABLE _unified_collections ALTER COLUMN featured_records TYPE jsonb;
+
+ALTER TABLE _unified_collections ALTER COLUMN parent TYPE jsonb;
+
+ALTER TABLE _unified_collections ALTER COLUMN children TYPE jsonb[];
+
+ALTER TABLE _unified_records ALTER COLUMN media TYPE jsonb;
+
+ALTER TABLE _unified_records ALTER COLUMN collection TYPE jsonb;
+
+ALTER TABLE _unified_records ALTER COLUMN children TYPE jsonb[];
+
+ALTER TABLE _unified_records ALTER COLUMN siblings TYPE jsonb[];
+
+ALTER TABLE _unified_records ALTER COLUMN parent TYPE jsonb;
+
+ALTER TABLE _unified_records ALTER COLUMN continuations TYPE jsonb[];
+
+ALTER TABLE collections_snapshots ALTER COLUMN children TYPE jsonb;
+
+CREATE OR REPLACE VIEW collection_summaries AS
+ SELECT a.collection_id,
+    a.title,
+    a.parent_collection_id,
+    a.summary,
+    a.description,
+    a.thumbnail,
+    NULLIF(TRIM(BOTH FROM (COALESCE(call_numbers.item, ''::text) || ' '::text) || COALESCE(a.call_number_suffix, ''::text)), ''::text) AS call_number,
+    a.display_order,
+    COALESCE(( SELECT to_jsonb(c.*) AS to_jsonb
+           FROM ( SELECT c_1.collection_id,
+                    c_1.title,
+                    c_1.thumbnail,
+                    c_1.parent_collection_id,
+                    TRIM(BOTH FROM (COALESCE(parent_call_numbers.item, ''::text) || ' '::text) || COALESCE(c_1.call_number_suffix, ''::text)) AS call_number
+                   FROM collections c_1
+                     LEFT JOIN list_items parent_call_numbers ON c_1.call_number_id = parent_call_numbers.list_item_id AND parent_call_numbers.type = 'call_number'::text
+                  WHERE a.parent_collection_id = c_1.collection_id) c), '{}'::jsonb) AS parent,
+    a.is_hidden
+   FROM collections a
+     LEFT JOIN list_items call_numbers ON call_numbers.type = 'call_number'::text AND a.call_number_id = call_numbers.list_item_id;
+
+CREATE OR REPLACE VIEW collections_list_items_view AS
+ SELECT b.collection_id,
+    a.type,
+    to_jsonb(array_agg(to_jsonb(( SELECT i.*::record AS i
+           FROM ( SELECT a.list_item_id,
+                    a.item) i)) ORDER BY a.item)) AS items,
+    string_agg(a.item, ' ## '::text ORDER BY a.item) AS items_text,
+    array_agg(a.item ORDER BY a.item) AS items_search
+   FROM list_items a
+     JOIN collections_to_list_items b USING (list_item_id)
+  GROUP BY b.collection_id, a.type;
+
+CREATE OR REPLACE VIEW record_media_view AS
+ SELECT record_id,
+    bool_or(url <> ''::text) AS has_digital,
+    count(*) AS media_count,
+    to_jsonb(array_agg(to_jsonb(a.*) ORDER BY is_primary DESC, media_id)) AS media,
+    array_agg(DISTINCT call_number) FILTER (WHERE call_number IS NOT NULL) AS call_numbers,
+    string_agg(DISTINCT call_number, ' ## '::text) FILTER (WHERE call_number IS NOT NULL) AS call_numbers_text,
+    array_agg(DISTINCT format_id) FILTER (WHERE format_id IS NOT NULL) AS formats,
+    array_agg(DISTINCT quality_id) FILTER (WHERE quality_id IS NOT NULL) AS qualitys,
+    array_agg(DISTINCT generation_id) FILTER (WHERE generation_id IS NOT NULL) AS generations,
+    string_agg(DISTINCT (format_item -> 'item'::text)::text, ' ## '::text) FILTER (WHERE format_item IS NOT NULL) AS formats_text
+   FROM media_view a
+  GROUP BY record_id;
+
+CREATE OR REPLACE VIEW record_summaries AS
+ SELECT a.record_id,
+    a.title,
+    a.parent_record_id,
+    primary_media.thumbnail AS primary_media_thumbnail,
+    primary_media.format_id AS primary_media_format_id,
+    list_items.item AS primary_media_format_text,
+    frt.record_type::text AS record_type,
+    COALESCE(( SELECT to_jsonb(c.*) AS to_jsonb
+           FROM collection_summaries c
+          WHERE a.collection_id = c.collection_id), '{}'::jsonb) AS collection
+   FROM records a
+     LEFT JOIN media primary_media ON a.primary_media_id = primary_media.media_id
+     LEFT JOIN list_items ON primary_media.format_id = list_items.list_item_id AND list_items.type = 'format'::text
+     LEFT JOIN format_record_types frt ON primary_media.format_id = frt.list_item_id;
+
+CREATE OR REPLACE VIEW records_list_items_view AS
+ SELECT b.record_id,
+    a.type,
+    to_jsonb(array_agg(to_jsonb(( SELECT i.*::record AS i
+           FROM ( SELECT a.list_item_id,
+                    a.item) i)) ORDER BY a.item)) AS items,
+    string_agg(a.item, ' ## '::text ORDER BY a.item) AS items_text,
+    array_agg(a.item ORDER BY a.item) AS items_search,
+    array_agg(a.list_item_id ORDER BY a.item) AS item_ids
+   FROM list_items a
+     JOIN records_to_list_items b USING (list_item_id)
+  GROUP BY b.record_id, a.type;
+
+CREATE OR REPLACE VIEW unified_collections AS
+ SELECT a.collection_id,
+    a.archive_id,
+    a.parent_collection_id,
+    a.title,
+    a.description,
+    a.description_search,
+    a.summary,
+    a.call_number_id,
+    a.call_number_suffix,
+    a.notes,
+    a.thumbnail,
+    a.display_order,
+    a.date_range,
+    a.needs_review,
+    a.is_hidden,
+    a.creator_user_id,
+    a.contributor_user_id,
+    a.date_created,
+    a.date_modified,
+    NULLIF(TRIM(BOTH FROM (COALESCE(call_numbers.item, ''::text) || ' '::text) || COALESCE(a.call_number_suffix, ''::text)), ''::text) AS call_number,
+    (contributor.firstname || ' '::text) || contributor.lastname AS contributor_name,
+    contributor.username AS contributor_username,
+    (creator.firstname || ' '::text) || creator.lastname AS creator_name,
+    creator.username AS creator_username,
+        CASE
+            WHEN call_numbers.list_item_id IS NOT NULL THEN jsonb_build_object('item', call_numbers.item, 'list_item_id', call_numbers.list_item_id)
+            ELSE NULL::jsonb
+        END AS call_number_item,
+    COALESCE(publishers.items, '[]'::jsonb) AS publishers,
+    COALESCE(subjects.items, '[]'::jsonb) AS subjects,
+    COALESCE(keywords.items, '[]'::jsonb) AS keywords,
+    subjects.items_text AS subjects_text,
+    keywords.items_text AS keywords_text,
+    publishers.items_text AS publishers_text,
+    subjects.items_search AS subjects_search,
+    keywords.items_search AS keywords_search,
+    publishers.items_search AS publishers_search,
+    to_jsonb(ARRAY( SELECT jsonb_build_object('record_id', b_1.record_id, 'title', b_1.title, 'parent_record_id', b_1.parent_record_id, 'primary_media_thumbnail', primary_media.thumbnail, 'primary_media_format_id', primary_media.format_id, 'primary_media_format_text', list_items.item, 'record_type', frt.record_type) AS jsonb_build_object
+           FROM records b_1
+             LEFT JOIN media primary_media ON b_1.primary_media_id = primary_media.media_id
+             LEFT JOIN list_items ON primary_media.format_id = list_items.list_item_id AND list_items.type = 'format'::text
+             LEFT JOIN format_record_types frt ON primary_media.format_id = frt.list_item_id
+          WHERE a.collection_id = b_1.collection_id
+          ORDER BY b_1.title)) AS child_records,
+    to_jsonb(ARRAY( SELECT jsonb_build_object('record_id', b_1.record_id, 'title', b_1.title, 'parent_record_id', b_1.parent_record_id, 'primary_media_thumbnail', primary_media.thumbnail, 'primary_media_format_id', primary_media.format_id, 'primary_media_format_text', list_items.item, 'record_type', frt.record_type, 'primary_media_url', primary_media.url, 'label', f.label, 'record_order', f.record_order) AS jsonb_build_object
+           FROM records b_1
+             LEFT JOIN featured_records f ON b_1.record_id = f.record_id
+             LEFT JOIN media primary_media ON b_1.primary_media_id = primary_media.media_id
+             LEFT JOIN list_items ON primary_media.format_id = list_items.list_item_id AND list_items.type = 'format'::text
+             LEFT JOIN format_record_types frt ON primary_media.format_id = frt.list_item_id
+          WHERE a.collection_id = f.collection_id
+          ORDER BY f.record_order, b_1.title)) AS featured_records,
+    ((((setweight(to_tsvector('english'::regconfig, COALESCE(a.title, ''::text)), 'A'::"char") || setweight(to_tsvector('simple'::regconfig,
+        CASE
+            WHEN call_numbers.item IS NULL THEN ''::text
+            ELSE TRIM(BOTH FROM (call_numbers.item || ' '::text) || COALESCE(a.call_number_suffix, ''::text))
+        END), 'A'::"char")) || setweight(to_tsvector('english'::regconfig, COALESCE(a.summary, ''::text)), 'B'::"char")) || setweight(to_tsvector('english'::regconfig, COALESCE(a.description_search, ''::text)), 'B'::"char")) || setweight(to_tsvector('english'::regconfig, COALESCE(keywords.items_text, ''::text)), 'C'::"char")) || setweight(to_tsvector('english'::regconfig, COALESCE(subjects.items_text, ''::text)), 'C'::"char") AS fulltext,
+    lower(regexp_replace(concat_ws(' ## '::text, NULLIF(a.title, ''::text), NULLIF(call_numbers.item, ''::text), NULLIF(a.call_number_suffix, ''::text), NULLIF(a.summary, ''::text), NULLIF(a.description_search, ''::text), NULLIF(keywords.items_text, ''::text), NULLIF(subjects.items_text, ''::text)), '\s+'::text, ' '::text, 'g'::text)) AS search_text,
+    COALESCE(( SELECT to_jsonb(p.*) AS to_jsonb
+           FROM collection_summaries p
+          WHERE a.parent_collection_id = p.collection_id), '{}'::jsonb) AS parent,
+    ARRAY( SELECT to_jsonb(collection_summaries.*) AS to_jsonb
+           FROM collection_summaries
+          WHERE collection_summaries.parent_collection_id = a.collection_id
+          ORDER BY collection_summaries.display_order) AS children,
+    d.descendant_ids AS descendant_collection_ids,
+    ancestors.ancestors
+   FROM collections a
+     LEFT JOIN collection_summaries b USING (collection_id)
+     LEFT JOIN users contributor ON a.contributor_user_id = contributor.user_id
+     LEFT JOIN users creator ON a.creator_user_id = creator.user_id
+     LEFT JOIN collections_list_items_view subjects ON subjects.type = 'subject'::text AND subjects.collection_id = a.collection_id
+     LEFT JOIN collections_list_items_view keywords ON keywords.type = 'keyword'::text AND keywords.collection_id = a.collection_id
+     LEFT JOIN list_items call_numbers ON call_numbers.type = 'call_number'::text AND a.call_number_id = call_numbers.list_item_id
+     LEFT JOIN collections_list_items_view publishers ON publishers.type = 'publisher'::text AND publishers.collection_id = a.collection_id
+     LEFT JOIN LATERAL ( WITH RECURSIVE d AS (
+                 SELECT collections.collection_id
+                   FROM collections
+                  WHERE collections.collection_id = a.collection_id
+                UNION ALL
+                 SELECT c.collection_id
+                   FROM collections c
+                     JOIN d d_2 ON c.parent_collection_id = d_2.collection_id
+                )
+         SELECT array_agg(d_1.collection_id ORDER BY d_1.collection_id) FILTER (WHERE d_1.collection_id <> a.collection_id) AS descendant_ids
+           FROM d d_1) d ON true
+     LEFT JOIN LATERAL ( WITH RECURSIVE ancestors_cte AS (
+                 SELECT cs.collection_id,
+                    cs.title,
+                    cs.parent_collection_id,
+                    1 AS level
+                   FROM collection_summaries cs
+                  WHERE cs.collection_id = a.parent_collection_id
+                UNION ALL
+                 SELECT cs.collection_id,
+                    cs.title,
+                    cs.parent_collection_id,
+                    ac.level + 1
+                   FROM collection_summaries cs
+                     JOIN ancestors_cte ac ON cs.collection_id = ac.parent_collection_id
+                )
+         SELECT jsonb_agg(jsonb_build_object('collection_id', ancestors_cte.collection_id, 'title', ancestors_cte.title) ORDER BY ancestors_cte.level DESC) AS ancestors
+           FROM ancestors_cte) ancestors ON true;
+
+CREATE OR REPLACE VIEW unified_records AS
+ SELECT a.record_id,
+    a.archive_id,
+    a.title,
+    a.description,
+    a.notes,
+    a.location,
+    a.vol_number,
+    a.collection_id,
+    a.parent_record_id,
+    a.primary_media_id,
+    a.year,
+    a.month,
+    a.day,
+    a.year_is_circa,
+    a.program_id,
+    a.needs_review,
+    a.is_hidden,
+    a.creator_user_id,
+    a.contributor_user_id,
+    a.date_created,
+    a.date_modified,
+    (((COALESCE(lpad(a.month::text, 2, '0'::text), '00'::text) || '/'::text) || COALESCE(lpad(a.day::text, 2, '0'::text), '00'::text)) || '/'::text) || COALESCE(a.year::text, '0000'::text) AS date_string,
+    ((((COALESCE(a.year::text, '1900'::text) || '-'::text) || COALESCE(a.month::text, '01'::text)) || '-'::text) || COALESCE(a.day::text, '01'::text))::date AS date,
+        CASE
+            WHEN program_lookup.list_item_id IS NOT NULL THEN jsonb_build_object('item', program_lookup.item, 'list_item_id', program_lookup.list_item_id)
+            ELSE NULL::jsonb
+        END AS program,
+    COALESCE(media.media, '[]'::jsonb) AS media,
+    media.has_digital,
+    COALESCE(media.media_count, 0::bigint) AS media_count,
+    (contributor.firstname || ' '::text) || contributor.lastname AS contributor_name,
+    contributor.username AS contributor_username,
+    (creator.firstname || ' '::text) || creator.lastname AS creator_name,
+    creator.username AS creator_username,
+    media.call_numbers,
+    media.call_numbers_text,
+    media.formats,
+    media.qualitys,
+    media.generations,
+    COALESCE(authors.items, '[]'::jsonb) AS authors,
+    COALESCE(publishers.items, '[]'::jsonb) AS publishers,
+    COALESCE(subjects.items, '[]'::jsonb) AS subjects,
+    COALESCE(keywords.items, '[]'::jsonb) AS keywords,
+    COALESCE(producers.items, '[]'::jsonb) AS producers,
+    authors.items_text AS authors_text,
+    subjects.items_text AS subjects_text,
+    keywords.items_text AS keywords_text,
+    producers.items_text AS producers_text,
+    publishers.items_text AS publishers_text,
+    authors.items_search AS authors_search,
+    subjects.items_search AS subjects_search,
+    keywords.items_search AS keywords_search,
+    producers.items_search AS producers_search,
+    publishers.items_search AS publishers_search,
+    (((((((setweight(to_tsvector('english'::regconfig, COALESCE(a.title, ''::text)), 'A'::"char") || setweight(to_tsvector('simple'::regconfig, COALESCE(media.call_numbers_text, ''::text)), 'A'::"char")) || setweight(to_tsvector('english'::regconfig, COALESCE(a.description, ''::text)), 'B'::"char")) || setweight(to_tsvector('simple'::regconfig, COALESCE(authors.items_text, ''::text)), 'C'::"char")) || setweight(to_tsvector('english'::regconfig, COALESCE(subjects.items_text, ''::text)), 'C'::"char")) || setweight(to_tsvector('english'::regconfig, COALESCE(keywords.items_text, ''::text)), 'C'::"char")) || setweight(to_tsvector('simple'::regconfig, COALESCE(producers.items_text, ''::text)), 'C'::"char")) || setweight(to_tsvector('simple'::regconfig, COALESCE(publishers.items_text, ''::text)), 'C'::"char")) || setweight(to_tsvector('english'::regconfig, COALESCE(media.formats_text, ''::text)), 'C'::"char") AS fulltext,
+    lower(regexp_replace(concat_ws(' ## '::text, NULLIF(a.title, ''::text), NULLIF(a.description, ''::text), NULLIF(media.call_numbers_text, ''::text), NULLIF(authors.items_text, ''::text), NULLIF(subjects.items_text, ''::text), NULLIF(keywords.items_text, ''::text), NULLIF(producers.items_text, ''::text), NULLIF(publishers.items_text, ''::text), NULLIF(media.formats_text, ''::text)), '\s+'::text, ' '::text, 'g'::text)) AS search_text,
+    b.primary_media_thumbnail,
+    b.primary_media_format_id,
+    b.primary_media_format_text,
+    frt.record_type::text AS record_type,
+    b.collection,
+    children.children,
+    siblings.siblings,
+    parent.parent,
+    continuations.continuations,
+    a.fact_number,
+    b.collection ->> 'title'::text AS collection_title,
+    relationships.relationships,
+    COALESCE(ARRAY( SELECT jsonb_array_elements_text(jsonb_path_query_array(c.ancestors, '$[*]."collection_id"'::jsonpath))::integer AS jsonb_array_elements_text), '{}'::integer[]) || ARRAY[c.collection_id] AS ancestor_collection_ids,
+    authors.item_ids AS author_ids,
+    subjects.item_ids AS subject_ids,
+    keywords.item_ids AS keyword_ids,
+    producers.item_ids AS producer_ids,
+    publishers.item_ids AS publisher_ids
+   FROM records a
+     JOIN record_summaries b USING (record_id)
+     JOIN _unified_collections c USING (collection_id)
+     LEFT JOIN list_items program_lookup ON a.program_id = program_lookup.list_item_id
+     LEFT JOIN record_media_view media USING (record_id)
+     LEFT JOIN media primary_media ON a.primary_media_id = primary_media.media_id
+     LEFT JOIN format_record_types frt ON primary_media.format_id = frt.list_item_id
+     LEFT JOIN users contributor ON a.contributor_user_id = contributor.user_id
+     LEFT JOIN users creator ON a.creator_user_id = creator.user_id
+     LEFT JOIN records_list_items_view authors ON authors.type = 'author'::text AND authors.record_id = a.record_id
+     LEFT JOIN records_list_items_view subjects ON subjects.type = 'subject'::text AND subjects.record_id = a.record_id
+     LEFT JOIN records_list_items_view keywords ON keywords.type = 'keyword'::text AND keywords.record_id = a.record_id
+     LEFT JOIN records_list_items_view producers ON producers.type = 'producer'::text AND producers.record_id = a.record_id
+     LEFT JOIN records_list_items_view publishers ON publishers.type = 'publisher'::text AND publishers.record_id = a.record_id
+     LEFT JOIN record_summaries parent_record ON a.parent_record_id = parent_record.record_id
+     LEFT JOIN LATERAL ( SELECT jsonb_agg(to_jsonb(rr.*)) AS relationships
+           FROM related_records rr
+          WHERE rr.record_id_1 = a.record_id OR rr.record_id_2 = a.record_id AND rr.record_id_1 <> a.record_id) relationships ON true
+     LEFT JOIN LATERAL ( SELECT array_agg(to_jsonb(record_summaries.*) ORDER BY record_summaries.title) AS children
+           FROM record_summaries
+          WHERE record_summaries.parent_record_id = a.record_id) children ON true
+     LEFT JOIN LATERAL ( SELECT array_agg(to_jsonb(record_summaries.*) ORDER BY record_summaries.title) AS siblings
+           FROM record_summaries
+          WHERE record_summaries.parent_record_id = a.parent_record_id AND record_summaries.record_id <> a.record_id) siblings ON true
+     LEFT JOIN LATERAL ( SELECT COALESCE(array_agg(to_jsonb(cr.*) ORDER BY (array_position(c_1.continuation_records, cr.record_id))), '{}'::jsonb[]) AS continuations
+           FROM continuations c_1,
+            LATERAL unnest(c_1.continuation_records) WITH ORDINALITY rid(rid, ordinality)
+             JOIN record_summaries cr ON rid.rid = cr.record_id
+          WHERE a.record_id = ANY (c_1.continuation_records)) continuations ON true
+     CROSS JOIN LATERAL ( SELECT COALESCE(to_jsonb(parent_record.*), NULL::jsonb) AS parent) parent;
+Plan: 1 to modify.
+
+Summary by type:
+  tables: 1 to modify
+
+Tables:
+  ~ collections
+    ~ featured_records (column)
+    + fulltext (column)
+    + search_text (column)
+    + collections_fulltext_idx (index)
+    + collections_search_text_idx (index)
+
+DDL to be executed:
+--------------------------------------------------
+
+-- Transaction Group #1
+ALTER TABLE collections ADD COLUMN fulltext tsvector;
+
+ALTER TABLE collections ADD COLUMN search_text text;
+
+ALTER TABLE collections ALTER COLUMN featured_records TYPE json;
+
+-- Transaction Group #2
+CREATE INDEX CONCURRENTLY IF NOT EXISTS collections_fulltext_idx ON public_search.collections USING gin (fulltext);
+
+-- Transaction Group #3
+-- pgschema:wait
+SELECT 
+    COALESCE(i.indisvalid, false) as done,
+    CASE 
+        WHEN p.blocks_total > 0 THEN p.blocks_done * 100 / p.blocks_total
+        ELSE 0
+    END as progress
+FROM pg_class c
+LEFT JOIN pg_index i ON c.oid = i.indexrelid
+LEFT JOIN pg_stat_progress_create_index p ON c.oid = p.index_relid
+WHERE c.relname = 'collections_fulltext_idx';
+
+-- Transaction Group #4
+CREATE INDEX CONCURRENTLY IF NOT EXISTS collections_search_text_idx ON public_search.collections USING gin (search_text gin_trgm_ops);
+
+-- Transaction Group #5
+-- pgschema:wait
+SELECT 
+    COALESCE(i.indisvalid, false) as done,
+    CASE 
+        WHEN p.blocks_total > 0 THEN p.blocks_done * 100 / p.blocks_total
+        ELSE 0
+    END as progress
+FROM pg_class c
+LEFT JOIN pg_index i ON c.oid = i.indexrelid
+LEFT JOIN pg_stat_progress_create_index p ON c.oid = p.index_relid
+WHERE c.relname = 'collections_search_text_idx';

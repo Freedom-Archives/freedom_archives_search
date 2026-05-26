@@ -60,12 +60,12 @@ CREATE TABLE IF NOT EXISTS _unified_collections (
     subjects_search text[],
     keywords_search text[],
     publishers_search text[],
-    child_records json,
-    featured_records json,
+    child_records jsonb,
+    featured_records jsonb,
     fulltext tsvector,
     search_text text,
-    parent json,
-    children json[],
+    parent jsonb,
+    children jsonb[],
     descendant_collection_ids integer[],
     ancestors jsonb,
     CONSTRAINT _unified_collections_pkey PRIMARY KEY (collection_id)
@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS _unified_records (
     date_string text,
     date date,
     program jsonb,
-    media json,
+    media jsonb,
     has_digital boolean,
     media_count bigint,
     contributor_name text,
@@ -187,11 +187,11 @@ CREATE TABLE IF NOT EXISTS _unified_records (
     primary_media_format_id INTEGER,
     primary_media_format_text TEXT,
     record_type TEXT,
-    collection json,
-    children json[],
-    siblings json[],
-    parent json,
-    continuations json[],
+    collection jsonb,
+    children jsonb[],
+    siblings jsonb[],
+    parent jsonb,
+    continuations jsonb[],
     fact_number text,
     collection_title text,
     relationships jsonb,
@@ -453,11 +453,11 @@ CREATE TABLE IF NOT EXISTS collections_snapshots (
     thumbnail text,
     date_modified timestamptz,
     descendant_collection_ids integer[],
-    featured_records json,
+    featured_records jsonb,
     keywords jsonb,
     date_range text,
     ancestors jsonb,
-    children json,
+    children jsonb,
     display_order integer,
     parent_collection_id integer,
     CONSTRAINT collections_snapshots_pkey PRIMARY KEY (snapshot_id, archive_id, collection_id),
@@ -850,7 +850,7 @@ CREATE OR REPLACE VIEW collection_summaries AS
     a.thumbnail,
     NULLIF(TRIM(BOTH FROM (COALESCE(call_numbers.item, ''::text) || ' '::text) || COALESCE(a.call_number_suffix, ''::text)), ''::text) AS call_number,
     a.display_order,
-    COALESCE(( SELECT row_to_json(c.*) AS row_to_json
+    COALESCE(( SELECT to_jsonb(c.*) AS to_jsonb
            FROM ( SELECT c_1.collection_id,
                     c_1.title,
                     c_1.thumbnail,
@@ -858,7 +858,7 @@ CREATE OR REPLACE VIEW collection_summaries AS
                     TRIM(BOTH FROM (COALESCE(parent_call_numbers.item, ''::text) || ' '::text) || COALESCE(c_1.call_number_suffix, ''::text)) AS call_number
                    FROM collections c_1
                      LEFT JOIN list_items parent_call_numbers ON c_1.call_number_id = parent_call_numbers.list_item_id AND parent_call_numbers.type = 'call_number'::text
-                  WHERE a.parent_collection_id = c_1.collection_id) c), '{}'::json) AS parent,
+                  WHERE a.parent_collection_id = c_1.collection_id) c), '{}'::jsonb) AS parent,
     a.is_hidden
    FROM collections a
      LEFT JOIN list_items call_numbers ON call_numbers.type = 'call_number'::text AND a.call_number_id = call_numbers.list_item_id;
@@ -870,7 +870,7 @@ CREATE OR REPLACE VIEW collection_summaries AS
 CREATE OR REPLACE VIEW collections_list_items_view AS
  SELECT b.collection_id,
     a.type,
-    array_to_json(array_agg(row_to_json(( SELECT i.*::record AS i
+    to_jsonb(array_agg(to_jsonb(( SELECT i.*::record AS i
            FROM ( SELECT a.list_item_id,
                     a.item) i)) ORDER BY a.item))::jsonb AS items,
     string_agg(a.item, ' ## '::text ORDER BY a.item) AS items_text,
@@ -1099,7 +1099,7 @@ CREATE OR REPLACE VIEW record_media_view AS
  SELECT record_id,
     bool_or(url <> ''::text) AS has_digital,
     count(*) AS media_count,
-    array_to_json(array_agg(row_to_json(a.*) ORDER BY is_primary DESC, media_id)) AS media,
+    to_jsonb(array_agg(to_jsonb(a.*) ORDER BY is_primary DESC, media_id)) AS media,
     array_agg(DISTINCT call_number) FILTER (WHERE call_number IS NOT NULL) AS call_numbers,
     string_agg(DISTINCT call_number, ' ## '::text) FILTER (WHERE call_number IS NOT NULL) AS call_numbers_text,
     array_agg(DISTINCT format_id) FILTER (WHERE format_id IS NOT NULL) AS formats,
@@ -1121,9 +1121,9 @@ CREATE OR REPLACE VIEW record_summaries AS
     primary_media.format_id AS primary_media_format_id,
     list_items.item AS primary_media_format_text,
     frt.record_type::TEXT AS record_type,
-    COALESCE(( SELECT row_to_json(c.*) AS row_to_json
+    COALESCE(( SELECT to_jsonb(c.*) AS to_jsonb
            FROM collection_summaries c
-          WHERE a.collection_id = c.collection_id), '{}'::json) AS collection
+          WHERE a.collection_id = c.collection_id), '{}'::jsonb) AS collection
    FROM records a
      LEFT JOIN media primary_media ON a.primary_media_id = primary_media.media_id
      LEFT JOIN list_items ON primary_media.format_id = list_items.list_item_id AND list_items.type = 'format'::text
@@ -1136,7 +1136,7 @@ CREATE OR REPLACE VIEW record_summaries AS
 CREATE OR REPLACE VIEW records_list_items_view AS
  SELECT b.record_id,
     a.type,
-    array_to_json(array_agg(row_to_json(( SELECT i.*::record AS i
+    to_jsonb(array_agg(to_jsonb(( SELECT i.*::record AS i
            FROM ( SELECT a.list_item_id,
                     a.item) i)) ORDER BY a.item))::jsonb AS items,
     string_agg(a.item, ' ## '::text ORDER BY a.item) AS items_text,
@@ -1188,14 +1188,14 @@ CREATE OR REPLACE VIEW unified_collections AS
     subjects.items_search AS subjects_search,
     keywords.items_search AS keywords_search,
     publishers.items_search AS publishers_search,
-    array_to_json(ARRAY( SELECT json_build_object('record_id', b.record_id, 'title', b.title, 'parent_record_id', b.parent_record_id, 'primary_media_thumbnail', primary_media.thumbnail, 'primary_media_format_id', primary_media.format_id, 'primary_media_format_text', list_items.item, 'record_type', frt.record_type) AS json_build_object
+    to_jsonb(ARRAY( SELECT jsonb_build_object('record_id', b.record_id, 'title', b.title, 'parent_record_id', b.parent_record_id, 'primary_media_thumbnail', primary_media.thumbnail, 'primary_media_format_id', primary_media.format_id, 'primary_media_format_text', list_items.item, 'record_type', frt.record_type) AS jsonb_build_object
            FROM records b
              LEFT JOIN media primary_media ON b.primary_media_id = primary_media.media_id
              LEFT JOIN list_items ON primary_media.format_id = list_items.list_item_id AND list_items.type = 'format'::text
              LEFT JOIN format_record_types frt ON primary_media.format_id = frt.list_item_id
           WHERE a.collection_id = b.collection_id
           ORDER BY b.title)) AS child_records,
-    array_to_json(ARRAY( SELECT json_build_object('record_id', b.record_id, 'title', b.title, 'parent_record_id', b.parent_record_id, 'primary_media_thumbnail', primary_media.thumbnail, 'primary_media_format_id', primary_media.format_id, 'primary_media_format_text', list_items.item, 'record_type', frt.record_type, 'primary_media_url', primary_media.url, 'label', f.label, 'record_order', f.record_order) AS json_build_object
+    to_jsonb(ARRAY( SELECT jsonb_build_object('record_id', b.record_id, 'title', b.title, 'parent_record_id', b.parent_record_id, 'primary_media_thumbnail', primary_media.thumbnail, 'primary_media_format_id', primary_media.format_id, 'primary_media_format_text', list_items.item, 'record_type', frt.record_type, 'primary_media_url', primary_media.url, 'label', f.label, 'record_order', f.record_order) AS jsonb_build_object
            FROM records b
              LEFT JOIN featured_records f ON b.record_id = f.record_id
              LEFT JOIN media primary_media ON b.primary_media_id = primary_media.media_id
@@ -1232,10 +1232,10 @@ CREATE OR REPLACE VIEW unified_collections AS
         'g'
       )
     ) AS search_text,
-    COALESCE(( SELECT row_to_json(p.*) AS row_to_json
+    COALESCE(( SELECT to_jsonb(p.*) AS to_jsonb
            FROM collection_summaries p
-          WHERE a.parent_collection_id = p.collection_id), '{}'::json) AS parent,
-    ARRAY( SELECT row_to_json(collection_summaries.*) AS row_to_json
+          WHERE a.parent_collection_id = p.collection_id), '{}'::jsonb) AS parent,
+    ARRAY( SELECT to_jsonb(collection_summaries.*) AS to_jsonb
            FROM collection_summaries
           WHERE collection_summaries.parent_collection_id = a.collection_id
           ORDER BY collection_summaries.display_order) AS children,
@@ -1334,7 +1334,7 @@ CREATE OR REPLACE VIEW unified_records AS
           WHEN program_lookup.list_item_id IS NOT NULL THEN jsonb_build_object('item', program_lookup.item, 'list_item_id', program_lookup.list_item_id)
           ELSE NULL::jsonb
       END AS program,
-    COALESCE(media.media, '[]'::json) AS media,
+    COALESCE(media.media, '[]'::jsonb) AS media,
     media.has_digital,
     COALESCE(media.media_count, 0::bigint) AS media_count,
     (contributor.firstname || ' '::text) || contributor.lastname AS contributor_name,
@@ -1439,18 +1439,18 @@ CREATE OR REPLACE VIEW unified_records AS
       FROM related_records rr
       WHERE rr.record_id_1 = a.record_id OR (rr.record_id_2 = a.record_id AND rr.record_id_1 <> a.record_id)
     ) relationships ON true
-     LEFT JOIN LATERAL ( SELECT array_agg(row_to_json(record_summaries.*) ORDER BY record_summaries.title) AS children
+     LEFT JOIN LATERAL ( SELECT array_agg(to_jsonb(record_summaries.*) ORDER BY record_summaries.title) AS children
            FROM record_summaries
           WHERE record_summaries.parent_record_id = a.record_id) children ON true
-     LEFT JOIN LATERAL ( SELECT array_agg(row_to_json(record_summaries.*) ORDER BY record_summaries.title) AS siblings
+     LEFT JOIN LATERAL ( SELECT array_agg(to_jsonb(record_summaries.*) ORDER BY record_summaries.title) AS siblings
            FROM record_summaries
           WHERE record_summaries.parent_record_id = a.parent_record_id AND record_summaries.record_id <> a.record_id) siblings ON true
-     LEFT JOIN LATERAL ( SELECT COALESCE(array_agg(row_to_json(cr.*) ORDER BY (array_position(c.continuation_records, cr.record_id))), '{}'::json[]) AS continuations
+     LEFT JOIN LATERAL ( SELECT COALESCE(array_agg(to_jsonb(cr.*) ORDER BY (array_position(c.continuation_records, cr.record_id))), '{}'::jsonb[]) AS continuations
            FROM continuations c,
             LATERAL unnest(c.continuation_records) WITH ORDINALITY rid(rid, ordinality)
              JOIN record_summaries cr ON rid.rid = cr.record_id
           WHERE a.record_id = ANY (c.continuation_records)) continuations ON true
-     CROSS JOIN LATERAL ( SELECT COALESCE(row_to_json(parent_record.*), NULL::json) AS parent) parent;
+     CROSS JOIN LATERAL ( SELECT COALESCE(to_jsonb(parent_record.*), NULL::jsonb) AS parent) parent;
 
 --
 -- Name: review_changes; Type: VIEW; Schema: -; Owner: -
