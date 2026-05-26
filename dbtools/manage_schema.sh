@@ -22,7 +22,9 @@ elif [ "$ACTION" = "create" ]; then
   if [ -z "$MIGRATION_NAME" ]; then
     MIGRATION_NAME="$(date +%Y%m%d%H%M%S)-migration"
   fi
-  # MIGRATION_NAME="$(date +%Y%m%d%H%M%S)-${2:-"migration"}"
+  last_id=$(find "$MIGRATIONS_PATH" -type f -regex ".+\/[0-9]+.*\.js$" -printf "%f\n" 2>/dev/null | grep -oP '^\d+' | sort -n | tail -1)
+  MIGRATION_ID=$(printf "%04d" $(( 10#${last_id:-0} + 1 )))
+  MIGRATION_NAME="${MIGRATION_ID}_${MIGRATION_NAME}"
 
   echo "
 export const up = async function (knex) {
@@ -32,7 +34,7 @@ export const up = async function (knex) {
     await knex.raw(\`SET LOCAL search_path = '${i}';\`);
     await knex.raw(\`
 $(
-      ./schema/pgschema plan --schema $i --file ./schema/$i.sql --output-human $MIGRATIONS_PATH/"$MIGRATION_NAME".$i.txt --output-sql stdout
+      ./schema/pgschema plan --schema $i --file ./schema/$i.sql --output-human "$MIGRATIONS_PATH"/"$MIGRATION_NAME".$i.txt --output-sql stdout | sed 's/\\/\\\\/g'
     )
     \`);
     await knex.raw(\`SET LOCAL search_path = 'freedom_archives';\`);
@@ -42,7 +44,7 @@ $(
   done
   echo "};
   
-export const down = async function (knex) {
+export const down = async function (_knex) {
 };
   " >>$MIGRATIONS_PATH/"$MIGRATION_NAME".js
 elif [ "$ACTION" = "apply" ]; then
