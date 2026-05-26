@@ -96,7 +96,7 @@ FROM
   _unified_records
 WHERE
   has_digital=TRUE
-  AND record_type IN ('Video', 'PDF', 'Image')
+  AND record_type IN ('Video', 'Document', 'Image')
   AND record_id NOT IN (${([...thumbnails].join(","), -1)})
 ORDER BY
   record_id
