@@ -17,6 +17,11 @@ fi
 #  echo "Unknown environment: $ENV"
 #  exit 1
 #fi
-source ./read_pg_config.sh $ENV
+source "$(dirname "$0")"/read_pg_config.sh "$ENV"
 
-psql "$@"
+if [[ "$0" =~ "plus" ]]; then
+  pgcli "$@"
+else
+  psql "$@"
+fi
+
