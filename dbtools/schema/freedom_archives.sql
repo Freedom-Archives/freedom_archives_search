@@ -460,6 +460,8 @@ CREATE TABLE IF NOT EXISTS collections_snapshots (
     children jsonb,
     display_order integer,
     parent_collection_id integer,
+    fulltext tsvector,
+    search_text text,
     CONSTRAINT collections_snapshots_pkey PRIMARY KEY (snapshot_id, archive_id, collection_id),
     CONSTRAINT fk_snapshot FOREIGN KEY (snapshot_id) REFERENCES snapshots (snapshot_id) ON DELETE CASCADE
 );

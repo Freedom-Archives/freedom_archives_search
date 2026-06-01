@@ -1,0 +1,17 @@
+Plan: 1 to modify.
+
+Summary by type:
+  tables: 1 to modify
+
+Tables:
+  ~ collections_snapshots
+    + fulltext (column)
+    + search_text (column)
+
+DDL to be executed:
+--------------------------------------------------
+
+ALTER TABLE collections_snapshots ADD COLUMN fulltext tsvector;
+
+ALTER TABLE collections_snapshots ADD COLUMN search_text text;
+No changes detected.

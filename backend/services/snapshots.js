@@ -19,7 +19,7 @@ class Snapshots extends KnexService {
 }
 
 const collections_filter = /* sql */ `
-  COALESCE(ARRAY_LENGTH(c.descendant_collection_ids, 1), 0)+COALESCE(JSON_ARRAY_LENGTH(c.child_records), 0)!=0
+  COALESCE(ARRAY_LENGTH(c.descendant_collection_ids, 1), 0)+COALESCE(JSONB_ARRAY_LENGTH(c.child_records), 0)!=0
   AND c.is_hidden=FALSE
   AND c.needs_review=FALSE
 `;
@@ -142,7 +142,9 @@ SELECT
 	c.ancestors,
 	'[]'::JSONB AS children,
 	c.display_order,
-  c.parent_collection_id
+  c.parent_collection_id,
+  c.fulltext,
+  c.search_text
 FROM
 	_unified_collections c
 WHERE
