@@ -206,7 +206,7 @@ const CollectionMatches = ({ collections }) => {
       // variant="outlined"
     >
       <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-        The following collection titles match your search term:
+        The following collection titles match your search terms:
       </Typography>
       <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }} useFlexGap>
         {collections.map((c) => (
