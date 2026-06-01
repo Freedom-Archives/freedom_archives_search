@@ -75,7 +75,7 @@
     "node-addon-api": "^8.8.0",
     "pg": "^8.21.0",
     "pg-tsquery": "^8.4.2",
-    "react": "^19.2.6",
+    "react": "^19.2.7",
     "react-router": "^7.16.0",
     "serve-favicon": "^2.5.1",
     "sharp": "0.34.2",
@@ -92,9 +92,9 @@
     "@eslint/js": "9.39.4",
     "@eslint/json": "^1.2.0",
     "@stylistic/eslint-plugin": "^5.10.0",
-    "@typescript-eslint/eslint-plugin": "^8.60.0",
-    "@typescript-eslint/parser": "^8.60.0",
-    "@vitest/ui": "^4.1.7",
+    "@typescript-eslint/eslint-plugin": "^8.60.1",
+    "@typescript-eslint/parser": "^8.60.1",
+    "@vitest/ui": "^4.1.8",
     "axios": "^1.16.1",
     "baseline-browser-mapping": "^2.10.33",
     "browserslist": "^4.28.2",
@@ -112,8 +112,8 @@
     "node-gyp": "^12.3.0",
     "nodemon": "^3.1.14",
     "sinon": "^19.0.5",
-    "typescript-eslint": "^8.60.0",
-    "vitest": "^4.1.7"
+    "typescript-eslint": "^8.60.1",
+    "vitest": "^4.1.8"
   },
   "msw": {
     "workerDirectory": [
