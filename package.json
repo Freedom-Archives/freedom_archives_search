@@ -51,7 +51,7 @@
     "release": "yarn version $0 && git tag -a v$(jq -r '.version' package.json) -m \"Release version v$(jq -r '.version' package.json)\" && git commit -m \"Release version v$(jq -r '.version' package.json)\" package.json && git push && git push --tags"
   },
   "dependencies": {
-    "@babel/core": "^7.29.7",
+    "@babel/core": "^8.0.0",
     "@feathersjs/authentication": "^5.0.46",
     "@feathersjs/authentication-local": "^5.0.46",
     "@feathersjs/authentication-oauth": "^5.0.46",
