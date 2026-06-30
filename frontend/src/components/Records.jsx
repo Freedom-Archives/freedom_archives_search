@@ -29,10 +29,10 @@ const filter_types = {
 };
 
 const sort_options = {
-  relevance: { label: "Search Relevance", sort: { rank: -1, title: 1, date_created: -1 } },
+  relevance: { label: "Search Relevance", sort: { rank: 1, title: -1, date_created: 1 }, sort_desc: true },
   title: { label: "Title", sort: { title: 1, rank: -1, date_created: -1 } },
-  date_modified: { label: "Date Modified", sort: { date_modified: -1, rank: -1, title: 1 } },
-  date_created: { label: "Date Created", sort: { date_created: -1, rank: -1, title: 1 } },
+  date_modified: { label: "Date Modified", sort: { date_modified: 1, rank: 1, title: -1 }, sort_desc: true },
+  date_created: { label: "Date Created", sort: { date_created: 1, rank: 1, title: -1 }, sort_desc: true },
   call_number: { label: "Call Number", sort: { call_numbers: 1, rank: -1, title: 1 } },
 };
 
@@ -46,7 +46,7 @@ export function Records({ embedded, itemAction, filter, forcedFilter, useStore }
         needs_review,
         collection_id,
         sort = "relevance",
-        sort_desc = true,
+        sort_desc = false,
       } = formFilter;
 
       const query = {

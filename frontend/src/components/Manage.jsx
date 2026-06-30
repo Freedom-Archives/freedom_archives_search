@@ -152,12 +152,16 @@ const FilterBar = ({
         formContext.setValue("sort", search.sort);
         formContext.setValue("sort_desc", search.sort_desc);
       }
+      if (search.sort !== filter.sort) {
+        search.sort_desc = sortOptions[search.sort]?.sort_desc || false;
+        formContext.setValue("sort_desc", search.sort_desc);
+      }
       if (!isEqual(search, filter)) {
         setFilter(search);
         setSearch({ offset: 0 });
       }
     },
-    [filter, formContext, setFilter, setSearch],
+    [filter, formContext, setFilter, setSearch, sortOptions],
   );
 
   const reset = useCallback(() => {
@@ -216,7 +220,7 @@ const FilterBar = ({
                 />
               </Grid>
             </Show>
-            <Grid flex="1" sx={{ minWidth: 150 }} container spacing={0}>
+            <Grid flex="1" sx={{ minWidth: 150 }} container spacing={0} flexWrap={"nowrap"}>
               <Grid flex="1 0 fit-content">
                 <Field
                   name="sort"
@@ -232,35 +236,44 @@ const FilterBar = ({
                     label: value.label,
                     value: key,
                   }))}
+                  textFieldProps={{
+                    sx: {
+                      ".MuiInputBase-root": {
+                        borderBottomRightRadius: 0,
+                        borderTopRightRadius: 0,
+                      },
+                    },
+                  }}
                 />
               </Grid>
               <Grid>
-                <Field
-                  name="sort_desc"
-                  field_type="checkbox"
-                  label=""
-                  margin="none"
-                  size={size}
-                  highlightDirty={false}
-                  icon={<ArrowUpward size={size} />}
-                  checkedIcon={<ArrowDownward size={size} />}
-                  color={"text.primary"}
-                  labelProps={{ size, sx: { m: 0 } }}
-                  sx={{
-                    m: 0,
-                    "& .MuiFormControlLabel-root": {
-                      margin: 0,
-                      width: "100%",
-                    },
-                    ml: "-1px",
-                    borderRadius: 1,
-                    borderBottomLeftRadius: 0,
-                    borderTopLeftRadius: 0,
-                    border: 1,
-                    BorderLeft: "none",
-                    borderColor: "rgba(var(--mui-palette-common-onBackgroundChannel) / 0.23)",
-                  }}
-                />
+                <Tooltip title={`Sort ${formContext.getValues("sort_desc") ? "Ascending" : "Descending"}`}>
+                  <Field
+                    name="sort_desc"
+                    field_type="checkbox"
+                    label=""
+                    margin="none"
+                    size={size}
+                    highlightDirty={false}
+                    icon={<ArrowUpward size={size} />}
+                    checkedIcon={<ArrowDownward size={size} />}
+                    color={"text.primary"}
+                    labelProps={{ size, sx: { m: 0 } }}
+                    sx={{
+                      m: 0,
+                      "& .MuiFormControlLabel-root": {
+                        margin: 0,
+                        width: "100%",
+                      },
+                      borderRadius: 1,
+                      borderBottomLeftRadius: 0,
+                      borderTopLeftRadius: 0,
+                      border: 1,
+                      borderLeft: "none",
+                      borderColor: "rgba(var(--mui-palette-common-onBackgroundChannel) / 0.23)",
+                    }}
+                  />
+                </Tooltip>
               </Grid>
             </Grid>
           </Grid>

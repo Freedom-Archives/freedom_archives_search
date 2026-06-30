@@ -6,6 +6,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
+import { merge } from "lodash-es";
 import { memo, useCallback, useMemo, useState } from "react";
 import { AutocompleteElement, FormProvider, useForm, useFormContext } from "react-hook-form-mui";
 import { useAutocompleteOptions } from "src/components/Autocomplete/useAutoCompleteOptions";
@@ -245,44 +246,45 @@ const Autocomplete = ({
     ],
   );
 
-  const autocompleteProps = {
-    handleHomeEndKeys: true,
-    filterSelectedOptions: true,
-    disableCloseOnSelect: false,
-    disableClearable,
-    clearOnBlur: true,
-    blurOnSelect: false,
-    onChange,
-    disabled: props.disabled,
-    autoHighlight: true,
-    // autoSelect: true,
-    getOptionLabel: (option) => {
-      const label = (getOptionById(option) || option)?.[labelField] || "NO LABEL";
-      return label;
-    },
-    onInputChange: (e, value, reason) => {
-      if (reason === "input" && !staticOptions && !(fetchAll && options?.length)) {
-        fetchOptions(value);
-      }
-    },
-    slotProps: {
-      paper: {
-        style: {
-          width: expandOptions ? "fit-content" : null,
-        },
-        sx: {
-          "& .MuiAutocomplete-option": {
-            whiteSpace: expandOptions ? "nowrap" : "wrap",
+  const autocompleteProps = merge(
+    {
+      handleHomeEndKeys: true,
+      filterSelectedOptions: true,
+      disableCloseOnSelect: false,
+      disableClearable,
+      clearOnBlur: true,
+      blurOnSelect: false,
+      onChange,
+      disabled: props.disabled,
+      autoHighlight: true,
+      // autoSelect: true,
+      getOptionLabel: (option) => {
+        const label = (getOptionById(option) || option)?.[labelField] || "NO LABEL";
+        return label;
+      },
+      onInputChange: (e, value, reason) => {
+        if (reason === "input" && !staticOptions && !(fetchAll && options?.length)) {
+          fetchOptions(value);
+        }
+      },
+      slotProps: {
+        paper: {
+          style: {
+            width: expandOptions ? "fit-content" : null,
+          },
+          sx: {
+            "& .MuiAutocomplete-option": {
+              whiteSpace: expandOptions ? "nowrap" : "wrap",
+            },
           },
         },
       },
+      renderOption,
+      onOpen: handleOpen,
     },
-    renderOption,
-    onOpen: handleOpen,
-    ...defaultAutocompleteProps,
-    size: textFieldProps.size,
-  };
-  textFieldProps.InputProps = { ...(textFieldProps.InputProps || {}), size: textFieldProps.size, inputRef };
+    defaultAutocompleteProps,
+    { size: textFieldProps.size },
+  );
 
   if (!staticOptions && !fetchAll) {
     autocompleteProps.filterOptions = (x) => x;

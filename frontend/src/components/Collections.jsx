@@ -15,23 +15,32 @@ const filter_types = {
 };
 
 const sort_options = {
-  relevance: { label: "Search Relevance", sort: { rank: -1, display_order: 1, title: 1, date_created: -1 } },
+  relevance: {
+    label: "Search Relevance",
+    sort: { rank: 1, display_order: -1, title: -1, date_created: 1 },
+    sort_desc: true,
+  },
   title: {
     label: "Collection Name",
     sort: { title: 1, display_order: 1, rank: -1, date_created: -1 },
   },
   date_modified: {
     label: "Date Modified",
-    sort: { date_modified: -1, display_order: 1, rank: -1, title: 1 },
+    sort: { date_modified: 1, display_order: -1, rank: 1, title: -1 },
+    sort_desc: true,
   },
-  date_created: { label: "Date Created", sort: { date_created: -1, display_order: 1, rank: -1, title: 1 } },
+  date_created: {
+    label: "Date Created",
+    sort: { date_created: 1, display_order: -1, rank: 1, title: -1 },
+    sort_desc: true,
+  },
   call_number: { label: "Call Number", sort: { call_number: 1, display_order: 1, rank: -1, title: 1 } },
 };
 
 export function Collections({ embedded, itemAction, filter, forcedFilter, useStore }) {
   const createQuery = useCallback(
     (filter) => {
-      const { search, hidden, needs_review, sort = "relevance", sort_desc = true } = filter;
+      const { search, hidden, needs_review, sort = "relevance", sort_desc = false } = filter;
       const query = {
         $select: ["collection_id", "title", "summary", "thumbnail", "parent", "call_number"],
         ...(forcedFilter || {}),
