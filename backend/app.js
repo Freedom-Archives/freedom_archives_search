@@ -35,6 +35,14 @@ const frontendDistPath = path.resolve(__dirname, '../public_dist/');
 const clientDistPath = path.resolve(frontendDistPath, 'client');
 const serverDistPath = path.resolve(frontendDistPath, 'server');
 
+let serverBuild;
+try {
+  serverBuild = await import(path.join(serverDistPath, "index.js"));
+} catch (err) {
+  logger.error("Failed to load SSR build at startup", { message: err?.message, stack: err?.stack });
+  throw err;
+}
+
 // Load app configuration
 // Enable security, CORS, compression, favicon and body parsing
 app.use(
@@ -87,17 +95,12 @@ expressApp.get("/search.php", (req, res) => {
 // Express 5 / path-to-regexp v6 doesn't accept "*" as a path pattern.
 // Use a regex catch-all instead.
 
-expressApp.get(/.*/, async (request, response, next) => {
+expressApp.get(/.*/, (request, response, next) => {
   if (request.path.startsWith("/api/") || request.path.startsWith("/images/")) {
     return next();
   }
 
-  try {
-    const serverBuild = await import(path.join(serverDistPath, "index.js"));
-    return createRequestHandler({ build: serverBuild })(request, response, next);
-  } catch (err) {
-    return next(err);
-  }
+  return createRequestHandler({ build: serverBuild })(request, response, next);
 });
 // Configure a middleware for 404s and the error handler
 app.use(notFound());
