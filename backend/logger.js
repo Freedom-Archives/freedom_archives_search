@@ -96,6 +96,16 @@ const logger = createLogger({
   // To see more detailed errors, change this to 'debug' (or set LOG_LEVEL=debug)
   level: logLevel,
   transports: loggerTransports,
+  // IMPORTANT: `errors({ stack: true })` must run here, at the logger's
+  // top-level format (not just inside each transport's own format above).
+  // `Error#message` and `Error#stack` are non-enumerable, and
+  // winston-transport clones `info` via `Object.assign({}, info)` before
+  // handing it to a transport's own format — which silently drops both.
+  // Capturing them here, against the original Error instance, before any of
+  // that cloning happens, is what makes `logger.error(someError)` (passed a
+  // bare Error, no message string) log something useful instead of just
+  // `{"code":500,"level":"error","timestamp":"..."}`.
+  format: format.combine(format.errors({ stack: true }), format.timestamp()),
 });
 
 export default logger;

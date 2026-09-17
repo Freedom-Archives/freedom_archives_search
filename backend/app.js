@@ -101,6 +101,14 @@ expressApp.get(/.*/, async (request, response, next) => {
 });
 // Configure a middleware for 404s and the error handler
 app.use(notFound());
+
+app.use((err, req, res, next) => {
+  err.requestId = req.requestId;
+  err.url = req.originalUrl || req.url;
+  err.method = req.method;
+  next(err);
+});
+
 app.use(
   errorHandler({
     logger,
