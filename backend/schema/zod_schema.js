@@ -320,7 +320,7 @@ const collectionsSchema = z.object({
 const embeddedCollectionSchema = collectionsSchema.pick({
   collection_id: true,
   title: true,
-  call_number: true,
+  call_number_id: true,
   thumbnail: true,
   display_order: true,
   is_hidden: true,
