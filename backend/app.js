@@ -52,7 +52,18 @@ app.use(
 );
 
 app.use(cors());
-app.use(compress());
+app.use(
+  compress({
+    // disable compression for streamed SSR HTML responsess
+    filter: (req, res) => {
+      const contentType = res.getHeader("Content-Type");
+      if (typeof contentType === "string" && contentType.includes("text/html")) {
+        return false;
+      }
+      return compress.filter(req, res);
+    },
+  }),
+);
 app.use(json({ limit: "13mb" }));
 app.use(urlencoded({ extended: true }));
 
