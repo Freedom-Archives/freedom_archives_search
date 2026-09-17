@@ -74,6 +74,7 @@ if (isProd) {
       maxFiles: process.env.LOG_MAX_FILES || "14d",
       level: logLevel,
       format: fileFormat,
+      auditFile: path.join(logDir, ".app-log-audit.json"),
     }),
   );
 
@@ -87,6 +88,7 @@ if (isProd) {
       maxFiles: process.env.LOG_MAX_FILES || "30d",
       level: "error",
       format: fileFormat,
+      auditFile: path.join(logDir, ".error-log-audit.json"),
     }),
   );
 }
