@@ -16,29 +16,30 @@ const getChangedFields = (input, dirtyFields) => {
     return input;
   }
 
+  const checkValue = (value) => {
+    return value === true || checkArray(value) || checkObject(value);
+  };
+
   const checkObject = (object) => {
     return (
+      object &&
       typeof object === "object" &&
       Object.keys(object).some((key) => {
-        return object[key] === true;
+        return checkValue(object[key]);
       })
     );
   };
   const checkArray = (array) => {
     return (
       Array.isArray(array) &&
-      array.some((item, index) => {
-        if (array[index] === true) {
-          return true;
-        } else if (typeof array[index] === "object") {
-          return checkObject(array[index]);
-        }
+      array.some((item) => {
+        return checkValue(item);
       })
     );
   };
   return Object.keys(dirtyFields).reduce((acc, key) => {
     if (key in input) {
-      if (dirtyFields[key] === true || checkArray(dirtyFields[key]) || checkObject(dirtyFields[key])) {
+      if (checkValue(dirtyFields[key])) {
         acc[key] = input[key];
       }
     }
