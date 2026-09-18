@@ -102,12 +102,15 @@ export const updateListItemRelations = async (context) => {
       // console.log(ids);
       // const res = await trx(`${join_table}`).whereIn("list_item_id", ids).delete();
       if (relation_data[type].length) {
-        await trx(join_table).insert(
-          relation_data[type].map(({ list_item_id }) => ({
-            list_item_id,
-            [`${table}_id`]: id,
-          })),
-        );
+        await trx(join_table)
+          .insert(
+            relation_data[type].map(({ list_item_id }) => ({
+              list_item_id,
+              [`${table}_id`]: id,
+            })),
+          )
+          .onConflict(["list_item_id", `${table}_id`])
+          .ignore();
       }
     }
   }
