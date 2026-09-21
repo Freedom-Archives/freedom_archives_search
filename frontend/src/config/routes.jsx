@@ -178,7 +178,7 @@ export const routeConfig = {
       {
         path: "admin/users",
         component: "./views/Users.jsx",
-        authRole: "staff",
+        authRole: "administrator",
         sidebar: {
           label: "Manage Users",
           icon: "",

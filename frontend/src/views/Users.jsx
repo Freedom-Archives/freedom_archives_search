@@ -101,10 +101,10 @@ export default function Users() {
                         <b>Intern</b>: Can modify collections and records
                       </li>
                       <li>
-                        <b>Staff</b>: Can modify site settings, featured records and collections, list items, and users
+                        <b>Staff</b>: Can modify site settings, featured records and collections, list items
                       </li>
                       <li>
-                        <b>Administrator</b>: Can publish site and review changes
+                        <b>Administrator</b>: Can publish site and review changes, and manage users
                       </li>
                     </Typography>
                   </Box>
