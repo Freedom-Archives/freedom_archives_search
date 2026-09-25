@@ -6,6 +6,7 @@ const xSmallPadding = "2px 3px";
 const xSmallMinHeight = "28px";
 const xSmallGroupPadding = "6px";
 const xSmallInputFontSize = "0.9rem";
+const xSmallAutocompleteInputPadding = "2.5px 4px 2.5px 8px";
 
 const xSmallButtonStyles = {
   padding: xSmallPadding,
@@ -37,7 +38,7 @@ const xSmallInputStyles = {
   },
   "& .MuiInputBase-input.MuiSelect-select, & .MuiInputBase-input.MuiAutocomplete-input":
   {
-    padding: "2.5px 4px 2.5px 8px",
+    padding: xSmallAutocompleteInputPadding,
   },
   "& .MuiInputBase-adornedStart": { paddingLeft: "8px" },
   "& .MuiInputBase-inputAdornedStart": { paddingLeft: 0 },
@@ -175,8 +176,12 @@ export const theme = extendTheme(baseTheme, {
         {
           props: { size: "x-small" },
           style: {
-            "& .MuiAutocomplete-inputRoot": {
+            // Combined class beats MUI's `& .MuiOutlinedInput-root { padding: 9 }` (1 child class)
+            "& .MuiAutocomplete-inputRoot.MuiOutlinedInput-root": {
               padding: "4px",
+              "& .MuiAutocomplete-input": {
+                padding: xSmallAutocompleteInputPadding,
+              },
             },
             ...xSmallInputStyles,
           },
