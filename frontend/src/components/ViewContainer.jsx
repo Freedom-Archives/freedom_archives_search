@@ -42,12 +42,11 @@ function ViewContainer({
 
   logger.log("VIEW CONTAINER RENDER");
 
-  const buttonsHeader = buttons ? <ButtonsHeader key="buttons" buttons={buttons} /> : <></>;
   const Container = noPaper ? Box : Paper;
 
   return (
     <Stack direction="column" spacing={embedded ? 1 : 2} useFlexGap className="scroll-container">
-      <Section elements={[...headerElements, buttonsHeader]} header service={service} embedded={embedded} />
+      <Section elements={[...headerElements, ...(buttons ? [<ButtonsHeader key="buttons" buttons={buttons} />] : [])]} header service={service} embedded={embedded} />
       <Container id="contents" className="flex-container" {...containerProps} elevation={embedded ? 0 : 1}>
         <Show when={!isLoading}>{children}</Show>
       </Container>
