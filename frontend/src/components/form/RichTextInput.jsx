@@ -3,6 +3,7 @@ import FormControl from '@mui/material/FormControl';
 import FormHelperText from '@mui/material/FormHelperText';
 import InputLabel from '@mui/material/InputLabel';
 import { TextAlign } from "@tiptap/extension-text-align";
+import { useCurrentEditor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { merge } from "lodash-es";
 import {
@@ -26,6 +27,66 @@ import {
 } from "mui-tiptap";
 import { useEffect, useRef, useState } from "react";
 import { parseError } from "src/components/form/schemaUtils";
+
+const extensions = [
+  StarterKit.configure({
+    link: {
+      openOnClick: false,
+      enableClickSelection: true,
+    },
+  }),
+  LinkBubbleMenuHandler,
+  TextAlign.configure({
+    types: [
+      "paragraph",
+      "blockquote",
+      "bulletList",
+      "codeBlock",
+      "doc",
+      "hardBreak",
+      "heading",
+      "horizontalRule",
+      "listItem",
+      "orderedList",
+    ],
+  }),
+];
+
+const RichTextControls = ({ disabled, editor }) => {
+  if (disabled || !editor?.extensionManager || editor.isDestroyed) {
+    return null;
+  }
+
+  return (
+    <MenuControlsContainer>
+      <MenuSelectHeading />
+      <MenuDivider />
+      <MenuButtonBold />
+      <MenuButtonItalic />
+      <MenuButtonUnderline />
+      <MenuDivider />
+      <MenuButtonAlignLeft />
+      <MenuButtonAlignCenter />
+      <MenuButtonAlignRight />
+      <MenuDivider />
+      <MenuButtonEditLink />
+      <MenuDivider />
+      <MenuButtonBulletedList />
+      <MenuButtonOrderedList />
+      <MenuDivider />
+      <MenuButtonHorizontalRule />
+    </MenuControlsContainer>
+  );
+};
+
+const RichTextBubbleMenu = () => {
+  const { editor } = useCurrentEditor();
+  const hasHandler = editor?.extensionManager?.extensions.some(
+    ({ name }) => name === "linkBubbleMenuHandler",
+  );
+
+  return hasHandler && !editor.isDestroyed ? <LinkBubbleMenu /> : null;
+};
 
 const RichTextInput = (props) => {
   const {
@@ -64,30 +125,6 @@ const RichTextInput = (props) => {
       });
     }
   }, [content, editor, editor?.isEditable, editor?.isFocused]);
-
-  const extensions = [
-    StarterKit.configure({
-      link: {
-        openOnClick: false,
-        enableClickSelection: true,
-      },
-    }),
-    LinkBubbleMenuHandler,
-    TextAlign.configure({
-      types: [
-        "paragraph",
-        "blockquote",
-        "bulletList",
-        "codeBlock",
-        "doc",
-        "hardBreak",
-        "heading",
-        "horizontalRule",
-        "listItem",
-        "orderedList",
-      ],
-    }),
-  ];
 
   if (editable) {
     return (
@@ -188,34 +225,9 @@ const RichTextInput = (props) => {
                 tabindex: props?.inputProps?.tabIndex || 0,
               },
             }}
-            renderControls={() =>
-              !disabled && (
-                <MenuControlsContainer>
-                  <MenuSelectHeading />
-                  <MenuDivider />
-                  <MenuButtonBold />
-                  <MenuButtonItalic />
-                  <MenuButtonUnderline />
-                  <MenuDivider />
-                  <MenuButtonAlignLeft />
-                  <MenuButtonAlignCenter />
-                  <MenuButtonAlignRight />
-                  <MenuDivider />
-                  <MenuButtonEditLink />
-                  <MenuDivider />
-                  <MenuButtonBulletedList />
-                  <MenuButtonOrderedList />
-                  <MenuDivider />
-                  <MenuButtonHorizontalRule />
-                </MenuControlsContainer>
-              )
-            }
+            renderControls={(editor) => <RichTextControls disabled={disabled} editor={editor} />}
           >
-            {() => (
-              <>
-                <LinkBubbleMenu />
-              </>
-            )}
+            {() => <RichTextBubbleMenu />}
           </RichTextEditor>
         </Box>
         {(helperText || (hasError && !disabled)) && (
