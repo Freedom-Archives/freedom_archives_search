@@ -17,7 +17,7 @@ export const Section = ({ header, elements, service, embedded, ...props }) => {
       <Grid size="grow" style={{ flex: "none" }}>
         <Grid container alignContent="center" alignItems="center" justifyContent={justifyContent} spacing={2}>
           {elements.map((item) => (
-            <Grid key={item.key} flex="1 1 auto" style={{ textAlign: "center" }}>
+            <Grid key={item.key} flex="1 1 auto" style={{ textAlign: item.props?.align || "center" }}>
               {item}
             </Grid>
           ))}
