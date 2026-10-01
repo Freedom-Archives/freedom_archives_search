@@ -3,8 +3,7 @@ import Crumbs from "@mui/material/Breadcrumbs";
 import Icon from "@mui/material/Icon";
 import Typography from "@mui/material/Typography";
 import { startCase } from "lodash-es";
-import { useLocation } from "react-router";
-import { routes } from "src/config/routes";
+import { useMatches } from "react-router";
 import { useAppStore } from "src/stores";
 
 // import { useStateValue } from "../appContext";
@@ -13,29 +12,54 @@ import Link from "./Link";
 function Breadcrumbs() {
   const title = useAppStore((state) => state.title);
   // const { state } = useStateValue();
-  const location = useLocation();
+  const matches = useMatches();
+  const path = matches.at(-1);
+  let link = "/admin";
+  const paths = path.id.split("/").reduce(
+    (acc, segment) => {
+      let crumb = startCase(segment);
+      if (segment.startsWith(":")) {
+        const key = segment.slice(1).replace('?', '');
+        const param = path.params[key];
+        if (param) {
+          link += `/${param}`;
+          if (key === 'id' && title) {
+            crumb = title;
+          } else {
+            crumb = startCase(param);
+          }
+        } else {
+          return acc;
+        }
+      } else {
+        link += `/${segment}`;
+      }
+      acc.push({ link, title: crumb });
+      return acc;
+    }, [])
+  // console.log({ location, matches })
+  // const parts = location.pathname
+  //   .replace(/^\/admin\/?/, "")
+  //   .split("/")
+  //   .filter(Boolean);
 
-  const parts = location.pathname
-    .replace(/^\/admin\/?/, "")
-    .split("/")
-    .filter(Boolean);
+  // const paths = [
+  //   { link: "/admin/", title: "Freedom Archives Admin" },
+  //   ...parts
+  //     .filter((p) => p !== "new" && !p.match(/^\d+$/))
+  //     .map((p, index) => {
+  //       const link = `${parts.slice(0, index + 1).join("/")}`;
+  //       return {
+  //         link: routes[link] ? link : null,
+  //         title: startCase(p),
+  //       };
+  //     }),
+  // ];
 
-  const paths = [
-    { link: "/admin/", title: "Freedom Archives Admin" },
-    ...parts
-      .filter((p) => p !== "new" && !p.match(/^\d+$/))
-      .map((p, index) => {
-        const link = `${parts.slice(0, index + 1).join("/")}`;
-        return {
-          link: routes[link] ? link : null,
-          title: startCase(p),
-        };
-      }),
-  ];
-
-  if (title && parts.length + 1 !== paths.length) {
-    paths.push({ link: location.pathname, title });
-  }
+  // if (title && parts.length + 1 !== paths.length) {
+  //   paths.push({ link: location.pathname, title });
+  // }
+  paths.unshift({ link: "/admin/", title: "Freedom Archives Admin" });
   const titleString = paths
     .filter(({ title }) => Boolean(title))
     .map(({ title }) => title)
