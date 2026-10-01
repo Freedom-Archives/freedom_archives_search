@@ -2,7 +2,7 @@ import Add from "@mui/icons-material/Add";
 import KeyboardDoubleArrowLeft from "@mui/icons-material/KeyboardDoubleArrowLeft";
 import OpenInNew from "@mui/icons-material/OpenInNew";
 import Replay from "@mui/icons-material/Replay";
-import Sync from "@mui/icons-material/Sync";
+import SwapHoriz from "@mui/icons-material/SwapHoriz";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import FormControlLabel from "@mui/material/FormControlLabel";
@@ -47,6 +47,10 @@ const compareObjects = (obj1, obj2, path = "", diffs = new Set()) => {
     const currentPath = path ? `${path}.${key}` : key;
     const value1 = obj1[key];
     const value2 = obj2[key];
+    if (path === "" && !(key in obj1)) {
+      diffs.delete(key);
+      return;
+    }
     // console.log("comparing", currentPath, value1, value2, obj1, obj2);
 
     if (dayjs.isDayjs(value1) || dayjs.isDayjs(value2)) {
@@ -65,7 +69,7 @@ const compareObjects = (obj1, obj2, path = "", diffs = new Set()) => {
   return diffs;
 };
 
-const MediaCard = ({ media }) => {
+const MediaCard = ({ media, index }) => {
   if (!media) return null;
 
   return (
@@ -179,10 +183,10 @@ const CompareFormSection = ({
   );
 };
 
-function DataCard({ title, data, route, id }) {
+function DataCard({ title, data, route, id, align = "right" }) {
   return (
-    <Paper sx={{ p: 2 }}>
-      <Typography variant="h5" align="center">
+    <Paper sx={{ p: 2, width: "100%", textAlign: align }}>
+      <Typography variant="h5">
         <Link to={`${route}/${id}`} target="_blank">
           {title}
         </Link>
@@ -205,7 +209,16 @@ function DataCard({ title, data, route, id }) {
   );
 }
 
-const CompareForm = ({ compareData: inputData, fields, schema, loading, id, compareId, service }) => {
+const CompareForm = ({
+  compareData: inputData,
+  fields,
+  schema,
+  loading,
+  id,
+  service,
+  hideSwap = false,
+  versions = false,
+}) => {
   const [showOnlyDiffs, setShowOnlyDiffs] = useState(true);
   const [diffFields, setDiffFields] = useState(new Set());
   const [compareStats, setCompareStats] = useState({});
@@ -219,6 +232,7 @@ const CompareForm = ({ compareData: inputData, fields, schema, loading, id, comp
 
   // const { id, compareId } = useParams()
   const compareFormMethods = useForm({});
+  const compareId = inputData?.record_id;
 
   const mergeBlankValues = () => {
     for (const key of diffFields) {
@@ -239,6 +253,7 @@ const CompareForm = ({ compareData: inputData, fields, schema, loading, id, comp
       const currentData = getDefaultValuesFromSchema(service, getValues());
       compareFormMethods.reset(inputData);
       const diffs = compareObjects(currentData, compareData);
+      console.log("diffs", diffs);
       setDiffFields(diffs);
       setCompareStats({
         created: dayjs(inputData?.created_at),
@@ -293,37 +308,33 @@ const CompareForm = ({ compareData: inputData, fields, schema, loading, id, comp
         <IconButton variant="outlined">
           <KeyboardDoubleArrowLeft />
         </IconButton>
-        button to replace values in the left column with those from the right. For multi-line text fields, the value
-        will be appended.
-        <br />
-        <FormControlLabel
-          control={<Switch checked={showOnlyDiffs} onChange={(e) => setShowOnlyDiffs(e.target.checked)} />}
-          label="Only show fields with differences"
-        />
-        <Tooltip title="Update all empty values in the left column with non-empty values from the right column">
-          <span>
-            <Button variant="outlined" onClick={mergeBlankValues} disabled={diffFields.size === 0}>
-              Merge Blank Values
-            </Button>
-          </span>
-        </Tooltip>
+        button to replace values in the left column with those from the right.
+        <Show unless={versions}>
+          <br />
+          <FormControlLabel
+            control={<Switch checked={showOnlyDiffs} onChange={(e) => setShowOnlyDiffs(e.target.checked)} />}
+            label="Only show fields with differences"
+          />
+          <Tooltip title="Update all empty values in the left column with non-empty values from the right column">
+            <span>
+              <Button variant="outlined" onClick={mergeBlankValues} disabled={diffFields.size === 0}>
+                Merge Blank Values
+              </Button>
+            </span>
+          </Tooltip>
+        </Show>
       </Paper>
       <Stack direction={"row"} spacing={2} alignItems="center" sx={{ justifyContent: "space-between" }}>
-        <DataCard
-          title={formData?.title}
-          // subtitle={`${defaultValues?.date?.tz().format('L LT')} - ${defaultValues.arrest_city}`}
-          data={formData}
-          stats={stats}
-          route="/admin/records"
-          id={id}
-        />
-        <Tooltip title="Swap comparison">
-          <Link to={`/admin/site/find-duplicates/${compareId}/${id}`}>
-            <Button variant="outlined" size="small">
-              <Sync />
-            </Button>
-          </Link>
-        </Tooltip>
+        <DataCard title={formData?.title} data={formData} stats={stats} route="/admin/records" id={id} align="left" />
+        {!hideSwap && (
+          <Tooltip title="Swap comparison">
+            <Link to={`/admin/site/find-duplicates/${compareId}/${id}`}>
+              <Button variant="outlined" size="small">
+                <SwapHoriz />
+              </Button>
+            </Link>
+          </Tooltip>
+        )}
         <DataCard
           title={inputData?.title}
           // subtitle={`${compareStats?.date ? compareStats.date.tz().format('L LT') : ''} - ${inputData?.arrest_city}`}
@@ -339,7 +350,9 @@ const CompareForm = ({ compareData: inputData, fields, schema, loading, id, comp
           {Array.from({ length: Math.max(formData?.media?.length, compareData?.media?.length) }, (_, index) => (
             <Grid container alignItems={"center"} spacing={2} key={index}>
               {/* Left column */}
-              <Grid size="grow">{formData.media?.[index] && <MediaCard media={formData.media[index]} />}</Grid>
+              <Grid size="grow">
+                {formData.media?.[index] && <MediaCard media={formData.media[index]} index={index} />}
+              </Grid>
               <Grid size="auto">
                 {
                   <Tooltip title="Move media item to current record">
@@ -365,7 +378,7 @@ const CompareForm = ({ compareData: inputData, fields, schema, loading, id, comp
 const CompareField = ({ name, options, index, groupIndex, hasDiff, compareFormMethods }) => {
   const { setValue, resetField, formState, getValues } = useFormContext(); // Get form context from parent
   const isDirty = get(formState.dirtyFields, name);
-  const append = options.field_type === "textarea";
+  const append = false; // options.field_type === "textarea";
 
   const handleCopyRight = () => {
     const compareValue = compareFormMethods.getValues(name);

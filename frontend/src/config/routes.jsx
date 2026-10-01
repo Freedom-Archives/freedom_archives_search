@@ -48,7 +48,7 @@ export const routeConfig = {
         sidebar: {
           label: "Manage Records",
           icon: "",
-          pattern: new RegExp(`^/admin/records(\/[0-9]+)?$`),
+          pattern: new RegExp(`^/admin/records(\/[0-9].*)?$`),
         },
       },
       {
@@ -70,7 +70,14 @@ export const routeConfig = {
       {
         path: "records/:id",
         component: "./views/RecordView.jsx",
-        props: { showForm: true },
+      },
+      {
+        path: "records/:id/review",
+        component: "./components/ReviewRecord.jsx",
+      },
+      {
+        path: "records/:id/history/:version_index?",
+        component: "./components/RecordHistory.jsx",
       },
     ],
   },

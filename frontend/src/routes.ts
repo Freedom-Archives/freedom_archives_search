@@ -2,7 +2,8 @@ import { type RouteConfig, route, index, layout } from "@react-router/dev/routes
 
 import {routes as adminRouteConfig} from "./config/routes.jsx";
 
-const adminRoutes = Object.values(adminRouteConfig).map(([path, {component}]) => route(path, component, {id: path}));
+const adminRoutes = Object.entries(adminRouteConfig as Record<string, [string, {component: string}]>)
+  .map(([path, [, {component}]]) => route(path, component, {id: path}));
 
 export default [
   route("/", "./layouts/PublicLayout.jsx", [

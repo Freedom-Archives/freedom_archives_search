@@ -1,4 +1,6 @@
 import Delete from '@mui/icons-material/Delete';
+import Grading from "@mui/icons-material/Grading";
+import History from "@mui/icons-material/History";
 import Link from '@mui/icons-material/Link';
 import Save from '@mui/icons-material/Save';
 import Box from '@mui/material/Box';
@@ -7,6 +9,7 @@ import Icon from '@mui/material/Icon';
 import Typography from '@mui/material/Typography';
 import { isEmpty, startCase } from "lodash-es";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { getServiceID, services } from "src/api";
 import ButtonLink from "src/components/ButtonLink";
 import ViewContainer from "src/components/ViewContainer";
@@ -90,9 +93,25 @@ export const EditItemFooter = ({ service, item, itemLink, hideMeta }) => {
 
 const EditItemView = ({ newItem, item, service, deleteOptions, className, children, ...props }) => {
   const buttons = [{ label: "Save", type: "submit", color: "primary", icon: <Save /> }];
-
+  const navigate = useNavigate();
   let footerElements = [];
   if (!newItem && service) {
+    const id = item[getServiceID(service)];
+
+    buttons.unshift({
+      label: "Review Changes",
+      variant: "outlined",
+      icon: <Grading />,
+      onClick: () => navigate(`review`),
+    });
+
+    buttons.unshift({
+      label: "History",
+      variant: "outlined",
+      icon: <History />,
+      onClick: () => navigate(`history`),
+    });
+
     buttons.push({
       label: "Delete",
       type: "delete",
@@ -102,7 +121,6 @@ const EditItemView = ({ newItem, item, service, deleteOptions, className, childr
       deleteOptions,
     });
 
-    const id = item[getServiceID(service)];
     buttons.unshift({
       label: "Old Admin Link",
       type: "link",
