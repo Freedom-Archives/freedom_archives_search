@@ -6,6 +6,8 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { isEqual, isObject } from "lodash-es";
+import dayjs from "dayjs";
 import { useState } from "react";
 import { FormProvider, useFormContext } from "react-hook-form";
 import { Field } from "src/components/form/Field";
@@ -41,6 +43,37 @@ const MEDIA_FIELD_SPECS = [
   { path: "url", label: "URL" },
 ];
 
+// Calculate diffs for a single media item pair
+const compareMediaItems = (current, compare, path = "", diffs = new Set()) => {
+  if (!isObject(current) || !isObject(compare)) {
+    if (!isEqual(current, compare)) {
+      diffs.add(path);
+    }
+    return diffs;
+  }
+
+  const allKeys = new Set([...Object.keys(current), ...Object.keys(compare)]);
+
+  allKeys.forEach((key) => {
+    const currentPath = path ? `${path}.${key}` : key;
+    const value1 = current[key];
+    const value2 = compare[key];
+
+    if (dayjs.isDayjs(value1) || dayjs.isDayjs(value2)) {
+      if (!value1 || !value1?.isSame(value2)) {
+        diffs.add(currentPath);
+        if (path) diffs.add(path);
+      }
+    } else if (isObject(value1) || isObject(value2)) {
+      diffs = compareMediaItems(value1, value2, currentPath, diffs);
+    } else if (!isEqual(value1 || "", value2 || "")) {
+      diffs.add(currentPath);
+      if (path) diffs.add(path);
+    }
+  });
+  return diffs;
+};
+
 const MediaFieldCompare = ({
   spec,
   index,
@@ -49,12 +82,14 @@ const MediaFieldCompare = ({
   compareFormMethods,
   hasCurrentMedia,
   hasCompareMedia,
-  diffFields,
+  mediaDiffs,
 }) => {
   const { getValues: getCurrentValues } = useFormContext();
   const { getValues: getCompareValues } = compareFormMethods;
+  const currentValue = hasCurrentMedia ? getCurrentValues?.(`media.${index}.${spec.path}`) : undefined;
+  const compareValue = hasCompareMedia && compareIndex !== undefined ? getCompareValues?.(`media.${compareIndex}.${spec.path}`) : undefined;
   const fieldName = `media.${index}.${spec.path}`;
-  const hasDiff = diffFields.has(fieldName);
+  const hasDiff = mediaDiffs.has(spec.path);
 
   return (
     <Stack spacing={1}>
@@ -95,15 +130,7 @@ const MediaFieldCompare = ({
   );
 };
 
-const ComparableMediaItem = ({
-  currentMedia,
-  compareMedia,
-  compareItem,
-  index,
-  onCopyMedia,
-  compareFormMethods,
-  diffFields,
-}) => {
+const ComparableMediaItem = ({ currentMedia, compareMedia, compareItem, index, onCopyMedia, compareFormMethods, mediaDiffs }) => {
   const hasCurrentMedia = !!currentMedia;
   const hasCompareMedia = !!compareMedia;
 
@@ -119,7 +146,7 @@ const ComparableMediaItem = ({
           compareFormMethods={compareFormMethods}
           hasCurrentMedia={hasCurrentMedia}
           hasCompareMedia={hasCompareMedia}
-          diffFields={diffFields}
+          mediaDiffs={mediaDiffs}
         />
       ))}
     </Stack>
@@ -137,7 +164,7 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
 
   // Index compare items by media_id for O(1) lookup
   const compareMediaById = Object.fromEntries(
-    (compareData.media || []).map((m, idx) => [normalizeMediaId(m.media_id, idx), { media: m, index: idx }]),
+    (compareData.media || []).map((m, idx) => [normalizeMediaId(m.media_id, idx), { media: m, index: idx }])
   );
 
   // Step through current data and look up compare matches
@@ -163,6 +190,12 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
       });
     }
   });
+
+  // Calculate diffs per media item pair
+  const getMediaDiffs = (currentMedia, compareMedia) => {
+    if (!currentMedia || !compareMedia) return new Set();
+    return compareMediaItems(currentMedia, compareMedia);
+  };
 
   const handleReplaceMedia = (currentIndex, compareItem, mediaId) => {
     if (compareItem) {
@@ -215,17 +248,15 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
         const { mediaId, current, compare } = pair;
         const isRemoved = removedMediaIds.has(mediaId);
         const isAdded = addedMediaIds.has(mediaId);
+        const mediaDiffs = getMediaDiffs(current?.media, compare?.media);
 
         return (
           <Paper
             key={mediaId}
             sx={{
               p: 3,
-              backgroundColor: isRemoved
-                ? "action.disabledBackground"
-                : isAdded
-                  ? "action.hover"
-                  : "background.default",
+              backgroundColor:
+                isRemoved ? "action.disabledBackground" : isAdded ? "action.hover" : "background.default",
               borderRadius: 1,
               border: "1px solid",
               borderColor: isRemoved ? "error.light" : "divider",
@@ -246,13 +277,11 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
                     hasDiff={true}
                     tooltip="Replace current item with comparison version"
                     onCopy={() => handleReplaceMedia(current.index, compare.media, mediaId)}
-                    onRestore={() =>
-                      setMediaChanges((prev) => {
-                        const updated = { ...prev };
-                        delete updated[mediaId];
-                        return updated;
-                      })
-                    }
+                    onRestore={() => setMediaChanges((prev) => {
+                      const updated = { ...prev };
+                      delete updated[mediaId];
+                      return updated;
+                    })}
                     size="small"
                   >
                     <KeyboardDoubleArrowLeft sx={{ mr: 0.5, fontSize: "small" }} />
@@ -291,9 +320,11 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
                 compareMedia={compare?.media ?? null}
                 compareItem={compare}
                 index={current?.index}
-                onCopyMedia={() => current && compare && handleReplaceMedia(current.index, compare.media, mediaId)}
+                onCopyMedia={() =>
+                  current && compare && handleReplaceMedia(current.index, compare.media, mediaId)
+                }
                 compareFormMethods={compareFormMethods}
-                diffFields={diffFields}
+                mediaDiffs={mediaDiffs}
               />
             </Stack>
           </Paper>
