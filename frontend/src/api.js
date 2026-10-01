@@ -49,6 +49,7 @@ export const unified_search = app.service("/api/unified_search");
 export const duplicate_records = app.service("/api/duplicate_records");
 export const duplicate_list_items = app.service("/api/duplicate_list_items");
 export const data_cleanup = app.service("/api/data_cleanup");
+export const version_history = app.service("/api/version_history");
 export const duplicate_list_items_refresh_status = app.service("/api/duplicate_list_items_refresh_status");
 
 export const getServiceID = service => `${service.replace(/s$/, "")}_id`;

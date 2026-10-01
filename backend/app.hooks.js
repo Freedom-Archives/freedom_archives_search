@@ -23,6 +23,7 @@ const checkAuth = async (context) => {
   }
   return context;
 };
+
 export const before = {
   all: [
     attachRequestId,

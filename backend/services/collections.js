@@ -8,6 +8,7 @@ import {
   setUser,
   updateListItemRelations,
   updateThumbnail,
+  updateVersionHistory,
 } from "./common_hooks/index.js";
 
 class Collections extends KnexService {
@@ -187,7 +188,7 @@ export default (function (app) {
       get: [fetchUnified],
       find: [fetchUnified],
       create: [setUser],
-      patch: [setUser, updateListItemRelations, updateRelations],
+      patch: [setUser, updateVersionHistory, updateListItemRelations, updateRelations],
       remove: [setUser, updateChildren],
     },
     after: {

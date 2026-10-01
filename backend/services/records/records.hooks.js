@@ -6,6 +6,7 @@ import {
   setUser,
   updateListItemRelations,
   updateThumbnail,
+  updateVersionHistory,
 } from "../common_hooks/index.js";
 
 // const tsquery = pgTsquery();
@@ -221,7 +222,7 @@ export const before = {
   find: [fetchUnified],
   get: [fetchUnified],
   create: [setUser, setArchive],
-  patch: [setUser, updateListItemRelations, updateRelations],
+  patch: [setUser, updateVersionHistory, updateListItemRelations, updateRelations],
   remove: [],
 };
 export const after = {

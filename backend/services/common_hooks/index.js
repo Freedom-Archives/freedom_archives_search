@@ -78,6 +78,14 @@ export const prepListItemRelations = (context) => {
   }
   return context;
 };
+
+export const getTableName = (context) => {
+  const {
+    service: { fullName },
+  } = context;
+  return fullName.slice(0, -1);
+};
+
 export const updateListItemRelations = async (context) => {
   const {
     data,
@@ -85,9 +93,8 @@ export const updateListItemRelations = async (context) => {
     params: {
       transaction: { trx },
     },
-    service: { fullName },
   } = context;
-  const table = fullName.slice(0, -1);
+  const table = getTableName(context);
   const id = parseInt(context.id || context.result[`${table}_id`], 10);
   for (const type of ["subjects", "keywords", "producers", "authors", "publishers"]) {
     if (relation_data && relation_data[type] !== undefined) {
@@ -127,10 +134,9 @@ export const refreshView = async (context) => {
     params: {
       transaction: { trx },
     },
-    service: { fullName },
     app,
   } = context;
-  const table = fullName.slice(0, -1);
+  const table = getTableName(context);
   const id = context.id || result[`${table}_id`];
   const additional_views = context.additional_views || [];
   await Promise.all(
@@ -195,6 +201,39 @@ export const allowDisablePagination = (context) => {
     context.params.paginate = false;
     delete params.query.$disable_pagination;
   }
+  return context;
+};
+
+export const updateVersionHistory = async (context) => {
+  const {
+    id,
+    app,
+    params: {
+      provider,
+      user,
+      transaction: { trx },
+    },
+  } = context;
+  if (!provider) {
+    return context;
+  }
+
+  const table = getTableName(context);
+  const pk = `${table}_id`;
+
+  const current_version = await trx(`unified_${table}s`).where(pk, id).first();
+  await app.service(`api/version_history`).create(
+    {
+      item_id: id,
+      type: table,
+      contributor_name: current_version.contributor_name,
+      contributor_username: current_version.contributor_username,
+      date: current_version.date_modified,
+      data: current_version,
+    },
+    { user, transaction: { trx } },
+  );
+
   return context;
 };
 

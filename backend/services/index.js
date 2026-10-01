@@ -17,6 +17,7 @@ import unified_collections from "./unified_collections.js";
 import unified_records from "./unified_records.js";
 import unified_search from "./unified_search/unified_search.service.js";
 import users from "./users/users.service.js";
+import version_history from "./version_history.js";
 
 export default (function (app) {
   app.configure(users);
@@ -38,4 +39,5 @@ export default (function (app) {
   app.configure(duplicate_records);
   app.configure(data_cleanup);
   app.configure(duplicate_list_items);
+  app.configure(version_history);
 });
