@@ -1,4 +1,3 @@
-import Add from "@mui/icons-material/Add";
 import KeyboardDoubleArrowLeft from "@mui/icons-material/KeyboardDoubleArrowLeft";
 import Replay from "@mui/icons-material/Replay";
 import { Box, Icon } from "@mui/material";
@@ -10,6 +9,7 @@ import Typography from "@mui/material/Typography";
 import { useState } from "react";
 import { FormProvider, useFormContext } from "react-hook-form";
 import { Field } from "src/components/form/Field";
+import useFormManagerContext from "src/components/form/FormManagerContext";
 
 const UndoableActionButton = ({ isDirty, hasDiff, tooltip, onCopy, onRestore, children, size = "medium" }) => {
   return isDirty ? (
@@ -95,7 +95,15 @@ const MediaFieldCompare = ({
   );
 };
 
-const ComparableMediaItem = ({ currentMedia, compareMedia, compareItem, index, onCopyMedia, compareFormMethods, diffFields }) => {
+const ComparableMediaItem = ({
+  currentMedia,
+  compareMedia,
+  compareItem,
+  index,
+  onCopyMedia,
+  compareFormMethods,
+  diffFields,
+}) => {
   const hasCurrentMedia = !!currentMedia;
   const hasCompareMedia = !!compareMedia;
 
@@ -118,7 +126,8 @@ const ComparableMediaItem = ({ currentMedia, compareMedia, compareItem, index, o
   );
 };
 
-export const CompareMediaSection = ({ formData, compareData, compareFormMethods, getValues, setValue, diffFields }) => {
+export const CompareMediaSection = ({ formData, compareData, compareFormMethods, diffFields }) => {
+  const { formContext: { getValues, setValue } } = useFormManagerContext();
   const [mediaChanges, setMediaChanges] = useState({});
   const [removedMediaIds, setRemovedMediaIds] = useState(new Set());
   const [addedMediaIds, setAddedMediaIds] = useState(new Set());
@@ -128,7 +137,7 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
 
   // Index compare items by media_id for O(1) lookup
   const compareMediaById = Object.fromEntries(
-    (compareData.media || []).map((m, idx) => [normalizeMediaId(m.media_id, idx), { media: m, index: idx }])
+    (compareData.media || []).map((m, idx) => [normalizeMediaId(m.media_id, idx), { media: m, index: idx }]),
   );
 
   // Step through current data and look up compare matches
@@ -212,8 +221,11 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
             key={mediaId}
             sx={{
               p: 3,
-              backgroundColor:
-                isRemoved ? "action.disabledBackground" : isAdded ? "action.hover" : "background.default",
+              backgroundColor: isRemoved
+                ? "action.disabledBackground"
+                : isAdded
+                  ? "action.hover"
+                  : "background.default",
               borderRadius: 1,
               border: "1px solid",
               borderColor: isRemoved ? "error.light" : "divider",
@@ -234,11 +246,13 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
                     hasDiff={true}
                     tooltip="Replace current item with comparison version"
                     onCopy={() => handleReplaceMedia(current.index, compare.media, mediaId)}
-                    onRestore={() => setMediaChanges((prev) => {
-                      const updated = { ...prev };
-                      delete updated[mediaId];
-                      return updated;
-                    })}
+                    onRestore={() =>
+                      setMediaChanges((prev) => {
+                        const updated = { ...prev };
+                        delete updated[mediaId];
+                        return updated;
+                      })
+                    }
                     size="small"
                   >
                     <KeyboardDoubleArrowLeft sx={{ mr: 0.5, fontSize: "small" }} />
@@ -277,9 +291,7 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
                 compareMedia={compare?.media ?? null}
                 compareItem={compare}
                 index={current?.index}
-                onCopyMedia={() =>
-                  current && compare && handleReplaceMedia(current.index, compare.media, mediaId)
-                }
+                onCopyMedia={() => current && compare && handleReplaceMedia(current.index, compare.media, mediaId)}
                 compareFormMethods={compareFormMethods}
                 diffFields={diffFields}
               />

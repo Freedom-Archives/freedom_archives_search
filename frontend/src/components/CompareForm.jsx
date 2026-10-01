@@ -95,25 +95,6 @@ const compareObjects = (obj1, obj2, path = "", diffs = new Set()) => {
   return diffs;
 };
 
-const MEDIA_FIELD_SPECS = [
-  { path: "media_id" },
-  { path: "is_primary", label: "Primary", field_type: "checkbox" },
-  { path: "call_number_item", label: "Call Number", field_type: "list_item", itemType: "call_number", fetchAll: true },
-  { path: "call_number_suffix", label: "Suffix" },
-  { path: "generation_item", label: "Generation", field_type: "list_item", itemType: "generation", fetchAll: true },
-  { path: "format_item", label: "Format", field_type: "list_item", itemType: "format", fetchAll: true },
-  { path: "quality_item", label: "Quality", field_type: "list_item", itemType: "quality", fetchAll: true },
-  { path: "no_copies", label: "Copies", type: "number" },
-  { path: "url", label: "URL" },
-];
-
-const getMediaFieldValue = (media, fieldName) => {
-  if (fieldName === "call_number_item") return media?.call_number_item?.item || media?.call_number;
-  if (fieldName === "generation_item") return media?.generation_item?.item;
-  if (fieldName === "format_item") return media?.format_item?.item;
-  if (fieldName === "quality_item") return media?.quality_item?.item;
-  return media?.[fieldName];
-};
 
 const FormSection = ({ title, sectionActions, children }) => {
   return (
@@ -307,8 +288,6 @@ const CompareForm = ({
           formData={formData}
           compareData={compareData}
           compareFormMethods={compareFormMethods}
-          getValues={getValues}
-          setValue={setValue}
           diffFields={diffFields}
         />
       </FormSection>
@@ -317,7 +296,7 @@ const CompareForm = ({
 };
 
 const CompareField = ({ name, options, index, groupIndex, hasDiff, compareFormMethods }) => {
-  const { setValue, resetField, formState, getValues } = useFormContext();
+  const { setValue, resetField, formState } = useFormContext();
   const isDirty = get(formState.dirtyFields, name);
 
   const handleCopyRight = () => {
