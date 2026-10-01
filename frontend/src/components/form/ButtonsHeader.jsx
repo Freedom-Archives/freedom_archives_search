@@ -32,6 +32,7 @@ export const FormButton = ({
           e.preventDefault();
           if (saveHandler) {
             await saveHandler();
+            onClick && await onClick();
           } else {
             await handleSubmit(onClick)();
           }
@@ -48,7 +49,14 @@ export const FormButton = ({
   );
 
   if (type === "link") {
-    return <ButtonLink {...props}>{label}</ButtonLink>;
+    return <ButtonLink
+      variant="contained"
+      size="medium"
+      startIcon={icon}
+      {...props}
+    >
+      {label}
+    </ButtonLink>;
   }
 
   return (
