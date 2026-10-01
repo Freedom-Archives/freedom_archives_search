@@ -13,9 +13,8 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
 import { get, isEqual, isObject } from "lodash-es";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
-import CompositeIcon from "src/components/CompositeIcon";
 import CompareMediaSection from "src/components/CompareMediaSection";
 import { Field } from "src/components/form/Field";
 import useFormManagerContext from "src/components/form/FormManagerContext";
@@ -203,7 +202,7 @@ const CompareForm = ({
   } = useFormManagerContext();
   const formData = getValues();
 
-  const compareFormMethods = useMemo(() => useForm({}), []);
+  const compareFormMethods = useForm({});
   const compareId = inputData?.record_id;
 
   const mergeBlankValues = () => {
