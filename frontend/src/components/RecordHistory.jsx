@@ -56,6 +56,8 @@ const RecordHistory = () => {
   const fetchVersions = useCallback(async () => {
     setLoading(true);
     const versions = await version_history.find({ query: { item_id: id, type: "record", $sort: { date: 1 } } });
+    console.log(versions);
+    
     setVersions(versions.map((v, version_index) => ({ version_index, ...v })));
   }, [id]);
 

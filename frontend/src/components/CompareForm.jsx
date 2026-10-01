@@ -1,8 +1,8 @@
 import Add from "@mui/icons-material/Add";
 import KeyboardDoubleArrowLeft from "@mui/icons-material/KeyboardDoubleArrowLeft";
-import OpenInNew from "@mui/icons-material/OpenInNew";
 import Replay from "@mui/icons-material/Replay";
 import SwapHoriz from "@mui/icons-material/SwapHoriz";
+import { Box, Icon } from "@mui/material";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import FormControlLabel from "@mui/material/FormControlLabel";
@@ -24,6 +24,7 @@ import { getDefaultValuesFromSchema } from "src/components/form/schemaUtils";
 import Link from "src/components/Link";
 import Show from "src/components/Show";
 import { RenderTime } from "src/views/EditItemView";
+
 // import CompositeIcon from 'src/components/utils/CompositeIcon'
 // import { Field } from 'src/components/utils/Field'
 // import { ModInfo } from 'src/components/utils/Footer'
@@ -32,6 +33,48 @@ import { RenderTime } from "src/views/EditItemView";
 // import Show from 'src/components/utils/Show'
 // import dayjs from 'src/lib/dayjs'
 // import { transformData } from 'src/lib/transforms'
+
+const UndoableActionButton = ({ isDirty, hasDiff, tooltip, onCopy, onRestore, children, size = "medium" }) => {
+  return isDirty ? (
+    <Tooltip title="Undo">
+      <span>
+        <Button size={size} variant="outlined" onClick={onRestore} disabled={!hasDiff}>
+          <Replay sx={{ fontSize: size === "small" ? "1.2rem" : "1.5rem" }} />
+        </Button>
+      </span>
+    </Tooltip>
+  ) : (
+    <Tooltip title={tooltip}>
+      <Button size={size} variant="outlined" onClick={onCopy}>
+        {children}
+      </Button>
+    </Tooltip>
+  );
+};
+
+const CompareRow = ({ children, isDirty, hasDiff, tooltip, onCopy, onRestore, append }) => {
+  return (
+    <Grid container size={12} alignItems={"start"} spacing={2}>
+      <Grid size="grow">{children[0]}</Grid>
+      <Grid alignSelf={"center"}>
+        <UndoableActionButton
+          isDirty={isDirty}
+          hasDiff={hasDiff}
+          tooltip={tooltip}
+          onCopy={onCopy}
+          onRestore={onRestore}
+        >
+          {append ? (
+            <CompositeIcon baseIcon={KeyboardDoubleArrowLeft} overlayIcon={Add} />
+          ) : (
+            <KeyboardDoubleArrowLeft />
+          )}
+        </UndoableActionButton>
+      </Grid>
+      <Grid size="grow">{children[1]}</Grid>
+    </Grid>
+  );
+};
 
 const compareObjects = (obj1, obj2, path = "", diffs = new Set()) => {
   if (!isObject(obj1) || !isObject(obj2)) {
@@ -69,66 +112,137 @@ const compareObjects = (obj1, obj2, path = "", diffs = new Set()) => {
   return diffs;
 };
 
-const MediaCard = ({ media, index }) => {
-  if (!media) return null;
+const MEDIA_FIELD_SPECS = [
+  {
+    path: "media_id",
+  },
+  {
+    path: "is_primary",
+    label: "Primary",
+    field_type: "checkbox",
+  },
+  {
+    path: "call_number_item",
+    label: "Call Number",
+    field_type: "list_item",
+    itemType: "call_number",
+    fetchAll: true,
+  },
+  { path: "call_number_suffix", label: "Suffix" },
+  {
+    path: "generation_item",
+    label: "Generation",
+    field_type: "list_item",
+    itemType: "generation",
+    fetchAll: true,
+  },
+  {
+    path: "format_item",
+    label: "Format",
+    field_type: "list_item",
+    itemType: "format",
+    fetchAll: true,
+  },
+  {
+    path: "quality_item",
+    label: "Quality",
+    field_type: "list_item",
+    itemType: "quality",
+    fetchAll: true,
+  },
+  { path: "no_copies", label: "Copies", type: "number" },
+  { path: "url", label: "URL" },
+];
+
+const getMediaFieldValue = (media, fieldName) => {
+  if (fieldName === "call_number_item") return media?.call_number_item?.item || media?.call_number;
+  if (fieldName === "generation_item") return media?.generation_item?.item;
+  if (fieldName === "format_item") return media?.format_item?.item;
+  if (fieldName === "quality_item") return media?.quality_item?.item;
+  return media?.[fieldName];
+};
+
+const MediaFieldCompare = ({
+  spec,
+  index,
+  compareIndex,
+  onCopyMedia,
+  compareFormMethods,
+  hasCurrentMedia,
+  hasCompareMedia,
+  diffFields,
+}) => {
+  const { getValues: getCurrentValues } = useFormContext();
+  const { getValues: getCompareValues } = compareFormMethods;
+  const currentValue = hasCurrentMedia ? getCurrentValues?.(`media.${index}.${spec.path}`) : undefined;
+  const compareValue = hasCompareMedia && compareIndex !== undefined ? getCompareValues?.(`media.${compareIndex}.${spec.path}`) : undefined;
+  const fieldName = `media.${index}.${spec.path}`;
+  const hasDiff = diffFields.has(fieldName);
+
+  if (spec.path === "call_number_item") {
+    console.log("MediaFieldCompare:", {
+      hasCurrentMedia,
+      hasCompareMedia,
+      index,
+      compareIndex,
+      fieldName,
+      currentValue,
+      compareValue,
+    });
+  }
 
   return (
-    <Paper sx={{ p: 2 }}>
-      <Typography variant="h6">{media?.call_number || "No Call Number"}</Typography>
-      <Grid container spacing={2} alignItems="center">
-        {/* Primary indicator */}
-        {/* <Grid size="auto">
-          <IconButton size="small" disabled>
-            {media.is_primary ? <RadioButtonChecked /> : <RadioButtonUnchecked />}
-          </IconButton>
-        </Grid> */}
+    <Stack spacing={1}>
+      <CompareRow
+        isDirty={false}
+        hasDiff={hasDiff}
+        tooltip="Copy from comparison record"
+        onCopy={() => onCopyMedia(index)}
+        onRestore={() => {}}
+        append={false}
+      >
+        <Box sx={{ visibility: !hasCurrentMedia ? "hidden" : "visible" }}>
+          {hasCurrentMedia && (
+            <Field
+              highlightDirty={true}
+              disabled={false}
+              name={fieldName}
+              label={spec.label}
+              {...spec}
+              color={hasDiff ? "info" : null}
+            />
+          )}
+        </Box>
+        <FormProvider {...compareFormMethods}>
+          <Box sx={{ visibility: !hasCompareMedia ? "hidden" : "visible" }}>
+            {hasCompareMedia && compareIndex !== undefined && <Field disabled={true} name={`media.${compareIndex}.${spec.path}`} label={spec.label} {...spec} />}
+          </Box>
+        </FormProvider>
+      </CompareRow>
+    </Stack>
+  );
+};
 
-        {/* Generation */}
-        <Grid size="auto">
-          <Typography variant="caption" color="textSecondary">
-            Generation
-          </Typography>
-          <Typography variant="body2">{media.generation_item?.item || "—"}</Typography>
-        </Grid>
+const ComparableMediaItem = ({ currentMedia, compareMedia, compareItem, index, mediaId, bothExist, onCopyMedia, compareFormMethods, diffFields }) => {
+  const hasCurrentMedia = !!currentMedia;
+  const hasCompareMedia = !!compareMedia;
 
-        {/* Format */}
-        <Grid size="auto">
-          <Typography variant="caption" color="textSecondary">
-            Format
-          </Typography>
-          <Typography variant="body2">{media.format_item?.item || "—"}</Typography>
-        </Grid>
-
-        {/* Quality */}
-        <Grid size="auto">
-          <Typography variant="caption" color="textSecondary">
-            Quality
-          </Typography>
-          <Typography variant="body2">{media.quality_item?.item || "—"}</Typography>
-        </Grid>
-
-        {/* Copies */}
-        <Grid size="auto">
-          <Typography variant="caption" color="textSecondary">
-            Copies
-          </Typography>
-          <Typography variant="body2">{media.no_copies || 1}</Typography>
-        </Grid>
-
-        {/* URL */}
-        {media.url && (
-          <Grid size="auto">
-            <Tooltip title={media.url}>
-              <Link href={media.url} target="_blank" rel="noreferrer">
-                <IconButton size="small">
-                  <OpenInNew fontSize="small" />
-                </IconButton>
-              </Link>
-            </Tooltip>
-          </Grid>
-        )}
-      </Grid>
-    </Paper>
+  return (
+    <Stack spacing={2}>
+      {MEDIA_FIELD_SPECS.map((spec) => (
+        <MediaFieldCompare
+          key={spec.path}
+          spec={spec}
+          index={index}
+          compareIndex={compareItem?.index}
+          onCopyMedia={onCopyMedia}
+          compareFormMethods={compareFormMethods}
+          hasCurrentMedia={hasCurrentMedia}
+          hasCompareMedia={hasCompareMedia}
+          diffFields={diffFields}
+        />
+      ))}
+    </Stack>
   );
 };
 
@@ -222,6 +336,8 @@ const CompareForm = ({
   const [showOnlyDiffs, setShowOnlyDiffs] = useState(true);
   const [diffFields, setDiffFields] = useState(new Set());
   const [compareStats, setCompareStats] = useState({});
+  const [mediaChanges, setMediaChanges] = useState({}); // Track media item replacements: mediaId -> originalIndex
+  const [removedMediaIds, setRemovedMediaIds] = useState(new Set()); // Track removed items for undo
   const {
     stats,
     // formState: { defaultValues },
@@ -346,29 +462,156 @@ const CompareForm = ({
       </Stack>
       {sections}
       <FormSection title="Media">
-        <Stack direction="column" spacing={2}>
-          {Array.from({ length: Math.max(formData?.media?.length, compareData?.media?.length) }, (_, index) => (
-            <Grid container alignItems={"center"} spacing={2} key={index}>
-              {/* Left column */}
-              <Grid size="grow">
-                {formData.media?.[index] && <MediaCard media={formData.media[index]} index={index} />}
-              </Grid>
-              <Grid size="auto">
-                {
-                  <Tooltip title="Move media item to current record">
-                    <Button
-                      variant="outlined"
-                      sx={{ visibility: compareData.media?.[index] ? "visible" : "hidden" }}
-                      onClick={() => appendMediaItem(index)}
-                    >
-                      <CompositeIcon baseIcon={KeyboardDoubleArrowLeft} overlayIcon={Add} />
-                    </Button>
-                  </Tooltip>
-                }
-              </Grid>
-              <Grid size="grow">{compareData.media?.[index] && <MediaCard media={compareData.media[index]} />}</Grid>
-            </Grid>
-          ))}
+        <Stack direction="column" spacing={3}>
+          {(() => {
+            // Index compare items by media_id for O(1) lookup (convert to string for consistent keys)
+            const compareMediaById = Object.fromEntries(
+              (compareData.media || []).map((m, idx) => [String(m.media_id || `compare-new-${idx}`), { media: m, index: idx }])
+            );
+
+            // Step through current data and look up compare matches
+            const allPairs = (formData.media || []).map((currentMedia, currentIdx) => {
+              const mediaId = String(currentMedia.media_id || `current-new-${currentIdx}`);
+              const compareItem = compareMediaById[mediaId] || null;
+
+              return {
+                mediaId,
+                current: { media: currentMedia, index: currentIdx },
+                compare: compareItem,
+              };
+            });
+
+            // Add compare-only items (not matched with current)
+            const currentMediaIds = new Set((formData.media || []).map((m, idx) => String(m.media_id || `current-new-${idx}`)));
+            console.log("currentMediaIds:", currentMediaIds);
+            console.log("compareMediaById keys:", Object.keys(compareMediaById));
+
+            Object.entries(compareMediaById).forEach(([mediaId, compareItem]) => {
+              console.log(`Checking compare mediaId: ${mediaId}, exists in current: ${currentMediaIds.has(mediaId)}`);
+              if (!currentMediaIds.has(mediaId)) {
+                console.log(`Adding compare-only item: ${mediaId}`);
+                allPairs.push({
+                  mediaId,
+                  current: null,
+                  compare: compareItem,
+                });
+              }
+            });
+
+            const handleReplaceMedia = (currentIndex, compareItem, pairMediaId) => {
+              if (compareItem) {
+                const currentMedia = getValues("media");
+                const updated = [...currentMedia];
+                updated[currentIndex] = { ...compareItem, media_id: compareItem.media_id };
+                setValue("media", updated, { shouldValidate: true, shouldDirty: true });
+                setMediaChanges((prev) => ({ ...prev, [pairMediaId]: currentIndex }));
+              }
+            };
+
+            const handleRemoveMedia = (mediaId, currentIndex) => {
+              setRemovedMediaIds((prev) => new Set([...prev, mediaId]));
+            };
+
+            const handleAddMedia = (compareItem) => {
+              if (compareItem) {
+                const currentMedia = getValues("media") || [];
+                const newItem = { ...compareItem, media_id: "" };
+                setValue("media", [...currentMedia, newItem], { shouldValidate: true, shouldDirty: true });
+              }
+            };
+
+            const handleUndoMedia = (mediaId) => {
+              setMediaChanges((prev) => {
+                const updated = { ...prev };
+                delete updated[mediaId];
+                return updated;
+              });
+            };
+
+            const handleUndoRemoveMedia = (mediaId) => {
+              setRemovedMediaIds((prev) => {
+                const updated = new Set(prev);
+                updated.delete(mediaId);
+                return updated;
+              });
+            };
+
+            return allPairs.map((pair, itemNum) => {
+              const { mediaId, current, compare } = pair;
+              const isDirty = !!mediaChanges[mediaId];
+              const isRemoved = removedMediaIds.has(mediaId);
+
+              return (
+                <Paper
+                  key={mediaId}
+                  sx={{
+                    p: 3,
+                    backgroundColor: isRemoved ? "action.disabledBackground" : "background.default",
+                    borderRadius: 1,
+                    border: "1px solid",
+                    borderColor: isRemoved ? "error.light" : "divider",
+                    opacity: isRemoved ? 0.6 : 1,
+                    textDecoration: isRemoved ? "line-through" : "none",
+                  }}
+                >
+                  <Stack spacing={2}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, opacity: isRemoved ? 0.6 : 1 }}>
+                        Media Item {itemNum + 1} {isRemoved && "(removed)"}
+                      </Typography>
+                      {current && compare && (
+                        <UndoableActionButton
+                          isDirty={isDirty}
+                          hasDiff={true}
+                          tooltip="Replace current item with comparison version"
+                          onCopy={() => handleReplaceMedia(current.index, compare.media, mediaId)}
+                          onRestore={() => handleUndoMedia(mediaId)}
+                          size="small"
+                        >
+                          <KeyboardDoubleArrowLeft sx={{ mr: 0.5, fontSize: "small" }} />
+                          Replace
+                        </UndoableActionButton>
+                      )}
+                      {current && !compare && (
+                        <UndoableActionButton
+                          isDirty={isRemoved}
+                          hasDiff={true}
+                          tooltip="Remove this media item"
+                          onCopy={() => handleRemoveMedia(mediaId, current.index)}
+                          onRestore={() => handleUndoRemoveMedia(mediaId)}
+                          size="small"
+                        >
+                          <Icon sx={{ mr: 0.5, fontSize: "small" }}>delete</Icon>
+                          Remove
+                        </UndoableActionButton>
+                      )}
+                      {!current && compare && (
+                        <Tooltip title="Add this media item from comparison">
+                          <Button size="small" variant="outlined" onClick={() => handleAddMedia(compare.media)}>
+                            <Icon sx={{ mr: 0.5, fontSize: "small" }}>add</Icon>
+                            Add
+                          </Button>
+                        </Tooltip>
+                      )}
+                    </Stack>
+                    <ComparableMediaItem
+                      currentMedia={current?.media ?? null}
+                      compareMedia={compare?.media ?? null}
+                      compareItem={compare}
+                      index={current?.index}
+                      mediaId={mediaId}
+                      bothExist={!!(current && compare)}
+                      onCopyMedia={() =>
+                        current && compare && handleReplaceMedia(current.index, compare.media, mediaId)
+                      }
+                      compareFormMethods={compareFormMethods}
+                      diffFields={diffFields}
+                    />
+                  </Stack>
+                </Paper>
+              );
+            });
+          })()}
         </Stack>
       </FormSection>
     </Stack>
@@ -376,9 +619,9 @@ const CompareForm = ({
 };
 
 const CompareField = ({ name, options, index, groupIndex, hasDiff, compareFormMethods }) => {
-  const { setValue, resetField, formState, getValues } = useFormContext(); // Get form context from parent
+  const { setValue, resetField, formState, getValues } = useFormContext();
   const isDirty = get(formState.dirtyFields, name);
-  const append = false; // options.field_type === "textarea";
+  const append = false;
 
   const handleCopyRight = () => {
     const compareValue = compareFormMethods.getValues(name);
@@ -394,44 +637,27 @@ const CompareField = ({ name, options, index, groupIndex, hasDiff, compareFormMe
   const tooltip = append
     ? "Append value from right column to current value"
     : "Replace current value with value from right column";
+
   return (
-    <Grid container size={12} alignItems={"start"} spacing={2}>
-      <Grid size="grow">
-        <Field
-          tabIndex={100 * (groupIndex + 1) + index}
-          highlightDirty={true}
-          name={name}
-          {...options}
-          color={hasDiff ? "info" : null}
-        />
-      </Grid>
-      <Grid alignSelf={"center"}>
-        {isDirty ? (
-          <Tooltip title="Restore current value">
-            <span>
-              <Button variant="outlined" onClick={() => resetField(name)} disabled={!hasDiff}>
-                <Replay />
-              </Button>
-            </span>
-          </Tooltip>
-        ) : (
-          <Tooltip title={tooltip}>
-            <Button variant="outlined" onClick={handleCopyRight}>
-              {append ? (
-                <CompositeIcon baseIcon={KeyboardDoubleArrowLeft} overlayIcon={Add} />
-              ) : (
-                <KeyboardDoubleArrowLeft />
-              )}
-            </Button>
-          </Tooltip>
-        )}
-      </Grid>
-      <Grid size="grow">
-        <FormProvider {...compareFormMethods}>
-          <Field name={name} disabled={true} {...options} />
-        </FormProvider>
-      </Grid>
-    </Grid>
+    <CompareRow
+      isDirty={isDirty}
+      hasDiff={hasDiff}
+      tooltip={tooltip}
+      onCopy={handleCopyRight}
+      onRestore={() => resetField(name)}
+      append={append}
+    >
+      <Field
+        tabIndex={100 * (groupIndex + 1) + index}
+        highlightDirty={true}
+        name={name}
+        {...options}
+        color={hasDiff ? "info" : null}
+      />
+      <FormProvider {...compareFormMethods}>
+        <Field name={name} disabled={true} {...options} />
+      </FormProvider>
+    </CompareRow>
   );
 };
 

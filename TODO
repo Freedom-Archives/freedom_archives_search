@@ -1,25 +1,45 @@
+☐ exclude 'document' type records from invalid call number view
+☐ add ability to jump to page in find duplicates view
+☐ limit stored versions to 5 years
+☐ add 'date_digitized' field to records
+✔ Common Terms -> Common Search Terms @done(26-02-02 11:07)
+☐ Add blurb sbout how to use site
+✔ FIx links in fix data page to be new tabs @done(26-02-03 13:06)
+☐ Include record/collection links in list item cleanup
+☐ Flag dupe list items that are not used by anything
+✔ Make sure public subcollection are not hidden @done(26-02-03 13:06)
+✔ Needs review subcollections @done(26-02-03 13:06)
+✔ look into autocomplete issues - @done(26-04-27 15:04)
+✔ how did we can an error of {Object object}? @done(26-04-27 15:04)
+
 
 Priorities:
+    ✔ stange behavior on search for "CE 047" - fewer result when include non_digitized  and no results when unchcecking non-digitized @done(26-04-27 15:08)
+    ✔ check quotes on search results @done(26-04-27 15:08)
+    ☐ check filter storage - make sure thinsg are cleared
+    ✔ set sort to relevance when search term changes @done(26-03-26 14:09)
+    ✔ handle call number searches: if term looks like call number, verify it is valid and then only search on call number @done(26-04-27 15:08)
+    ✔ move media_type out of media to record as item_type - change PDF to Paper - backfill from call numbers  @done(26-04-27 15:08)
     ☐ look into publisher merge feature
     ☐ Thumbnail uploads/resizing/management
-        ☐ update "no digital" thumbnail
+        ✔ update "no digital" thumbnail @done(26-04-27 15:05)
     ☐ export collections
         ☐ Export collections - intern can't export all
     ☐ Backups\
     ☐ add confirmation on user active toggle
     ☐ add title to table view re: media
     ☐ add validation on if username exists on create user
-    ☐ merge records with [CD] at end of title
+    ✔ merge records with [CD] at end of title @done(26-03-26 14:12)
     ☐ bug on record filters not working right?
+    ✔ audit: media w/o thumbnail @done(26-01-23 22:12)
+    ✔ audit: featured content w/o media @done(26-01-23 22:12)
 
   ☐ accessibility review
-  ☐ records:
-  ☐ collections:
   ☐ fix loading.... suspense fallback
   ☐ side scroll on phone view for browse by collection, etc
 
 Todos:
-    ☐ identity/merge duplicate list items
+    ✔ identity/merge duplicate list items @done(26-03-23 16:00)
     ☐ manage uncategorized + top-level categories per-archive
     ☐ check fuzzy-dupes on list item add
     ☐ clear canceled list-item add ("create new author 'xxx'")

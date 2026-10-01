@@ -12,7 +12,7 @@ export default (function (app) {
   const options = {
     id: "version_id",
     Model: app.get("postgresqlClient"),
-    paginate: { ...app.get("paginate"), max: false },
+    // paginate: { ...app.get("paginate"), max: false },
   };
   // Initialize our service with any options it requires
   app.use("/api/version_history", new VersionHistory(options), { methods: ["get", "find", "create"] });

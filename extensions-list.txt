@@ -1,0 +1,15 @@
+Extensions installed on SSH: styrotopia.net:
+anthropic.claude-code
+dbaeumer.vscode-eslint
+eamodio.gitlens
+editorconfig.editorconfig
+fabiospampinato.vscode-todo-plus
+graphql.vscode-graphql
+graphql.vscode-graphql-syntax
+matthewpi.caddyfile-support
+mgmcdermott.vscode-language-babel
+ofhumanbondage.react-proptypes-intellisense
+pflannery.vscode-versionlens
+prisma.prisma
+sourcegraph.cody-ai
+wix.vscode-import-cost

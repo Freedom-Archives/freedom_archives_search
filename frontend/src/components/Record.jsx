@@ -101,8 +101,8 @@ import Link from "./Link";
 //   continuations: [],
 // };
 
-function MediaItem({ media, index, actions }) {
-  const { swap, remove, update } = (actions || {});
+export function MediaItem({ media, index, actions }) {
+  const { swap, remove, update } = actions || {};
   if (!media) {
     return null;
   }
