@@ -13,7 +13,7 @@ import ViewContainer from "src/components/ViewContainer";
 import { recordSelectFields } from "src/config/constants";
 import { useTitle } from "src/stores";
 
-import CompareForm from "./CompareForm";
+import CompareForm from "./Compare/CompareForm";
 import Show from "./Show";
 
 const schema = {

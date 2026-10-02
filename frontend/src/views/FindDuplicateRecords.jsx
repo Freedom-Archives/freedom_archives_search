@@ -1,4 +1,4 @@
-import CompareRecords from "src/components/CompareRecords";
+import CompareRecords from "src/components/Compare/CompareRecords";
 import DuplicateRecordsTable from "src/components/DuplicateRecordsTable";
 
 function FindDuplicateRecords({ params: { id1, id2 } }) {

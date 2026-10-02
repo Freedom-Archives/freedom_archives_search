@@ -9,7 +9,7 @@ import { useConfirm } from "material-ui-confirm";
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { duplicate_records, records } from "src/api";
-import CompareForm from "src/components/CompareForm";
+import CompareForm from "src/components/Compare/CompareForm";
 import { BaseForm } from "src/components/form/BaseForm";
 import { getDefaultValuesFromSchema } from "src/components/form/schemaUtils";
 import ViewContainer from "src/components/ViewContainer";
