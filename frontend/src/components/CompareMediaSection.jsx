@@ -1,38 +1,18 @@
 import KeyboardDoubleArrowLeft from "@mui/icons-material/KeyboardDoubleArrowLeft";
-import Replay from "@mui/icons-material/Replay";
 import { Box, Icon } from "@mui/material";
-import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { isEqual, isObject } from "lodash-es";
 import dayjs from "dayjs";
+import { isEqual, isObject } from "lodash-es";
 import { useState } from "react";
-import { FormProvider, useFormContext } from "react-hook-form";
+import { FormProvider } from "react-hook-form";
+import { UndoableActionButton } from "src/components/CompareForm";
 import { Field } from "src/components/form/Field";
 import useFormManagerContext from "src/components/form/FormManagerContext";
 
-const UndoableActionButton = ({ isDirty, hasDiff, tooltip, onCopy, onRestore, children, size = "medium" }) => {
-  return isDirty ? (
-    <Tooltip title="Undo">
-      <span>
-        <Button size={size} variant="outlined" onClick={onRestore} disabled={!hasDiff}>
-          <Replay sx={{ fontSize: size === "small" ? "1.2rem" : "1.5rem" }} />
-        </Button>
-      </span>
-    </Tooltip>
-  ) : (
-    <Tooltip title={tooltip}>
-      <Button size={size} variant="outlined" onClick={onCopy}>
-        {children}
-      </Button>
-    </Tooltip>
-  );
-};
-
 const MEDIA_FIELD_SPECS = [
-  { path: "media_id" },
+  // { path: "media_id" },
   { path: "is_primary", label: "Primary", field_type: "checkbox" },
   { path: "call_number_item", label: "Call Number", field_type: "list_item", itemType: "call_number", fetchAll: true },
   { path: "call_number_suffix", label: "Suffix" },
@@ -84,10 +64,6 @@ const MediaFieldCompare = ({
   hasCompareMedia,
   mediaDiffs,
 }) => {
-  const { getValues: getCurrentValues } = useFormContext();
-  const { getValues: getCompareValues } = compareFormMethods;
-  const currentValue = hasCurrentMedia ? getCurrentValues?.(`media.${index}.${spec.path}`) : undefined;
-  const compareValue = hasCompareMedia && compareIndex !== undefined ? getCompareValues?.(`media.${compareIndex}.${spec.path}`) : undefined;
   const fieldName = `media.${index}.${spec.path}`;
   const hasDiff = mediaDiffs.has(spec.path);
 
@@ -106,16 +82,15 @@ const MediaFieldCompare = ({
             />
           )}
         </Box>
-        <Box sx={{ pt: 1 }}>
+        <Box sx={{ pt: 1, visibility: hasCompareMedia && hasCurrentMedia ? "visible" : "hidden" }}>
           <UndoableActionButton
             isDirty={false}
             hasDiff={hasDiff}
             tooltip="Copy from comparison record"
             onCopy={() => onCopyMedia(index)}
             onRestore={() => {}}
-            size="small"
           >
-            <KeyboardDoubleArrowLeft sx={{ fontSize: "small" }} />
+            <KeyboardDoubleArrowLeft />
           </UndoableActionButton>
         </Box>
         <FormProvider {...compareFormMethods}>
@@ -130,12 +105,20 @@ const MediaFieldCompare = ({
   );
 };
 
-const ComparableMediaItem = ({ currentMedia, compareMedia, compareItem, index, onCopyMedia, compareFormMethods, mediaDiffs }) => {
+const ComparableMediaItem = ({
+  currentMedia,
+  compareMedia,
+  compareItem,
+  index,
+  onCopyMedia,
+  compareFormMethods,
+  mediaDiffs,
+}) => {
   const hasCurrentMedia = !!currentMedia;
   const hasCompareMedia = !!compareMedia;
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={1}>
       {MEDIA_FIELD_SPECS.map((spec) => (
         <MediaFieldCompare
           key={spec.path}
@@ -153,9 +136,11 @@ const ComparableMediaItem = ({ currentMedia, compareMedia, compareItem, index, o
   );
 };
 
-export const CompareMediaSection = ({ formData, compareData, compareFormMethods, diffFields }) => {
-  const { formContext: { getValues, setValue } } = useFormManagerContext();
-  const [mediaChanges, setMediaChanges] = useState({});
+export const CompareMediaSection = ({ formData, compareData, compareFormMethods }) => {
+  const {
+    formContext: { getValues, setValue },
+  } = useFormManagerContext();
+  const [mediaChanges, setMediaChanges] = useState({}); // mediaId -> { originalItem, currentIndex }
   const [removedMediaIds, setRemovedMediaIds] = useState(new Set());
   const [addedMediaIds, setAddedMediaIds] = useState(new Set());
 
@@ -164,7 +149,7 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
 
   // Index compare items by media_id for O(1) lookup
   const compareMediaById = Object.fromEntries(
-    (compareData.media || []).map((m, idx) => [normalizeMediaId(m.media_id, idx), { media: m, index: idx }])
+    (compareData.media || []).map((m, idx) => [normalizeMediaId(m.media_id, idx), { media: m, index: idx }]),
   );
 
   // Step through current data and look up compare matches
@@ -200,10 +185,11 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
   const handleReplaceMedia = (currentIndex, compareItem, mediaId) => {
     if (compareItem) {
       const currentMedia = getValues("media");
+      const originalItem = currentMedia[currentIndex];
       const updated = [...currentMedia];
       updated[currentIndex] = { ...compareItem, media_id: compareItem.media_id };
       setValue("media", updated, { shouldValidate: true, shouldDirty: true });
-      setMediaChanges((prev) => ({ ...prev, [mediaId]: currentIndex }));
+      setMediaChanges((prev) => ({ ...prev, [mediaId]: { originalItem, currentIndex } }));
     }
   };
 
@@ -255,8 +241,11 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
             key={mediaId}
             sx={{
               p: 3,
-              backgroundColor:
-                isRemoved ? "action.disabledBackground" : isAdded ? "action.hover" : "background.default",
+              backgroundColor: isRemoved
+                ? "action.disabledBackground"
+                : isAdded
+                  ? "action.hover"
+                  : "background.default",
               borderRadius: 1,
               border: "1px solid",
               borderColor: isRemoved ? "error.light" : "divider",
@@ -277,11 +266,20 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
                     hasDiff={true}
                     tooltip="Replace current item with comparison version"
                     onCopy={() => handleReplaceMedia(current.index, compare.media, mediaId)}
-                    onRestore={() => setMediaChanges((prev) => {
-                      const updated = { ...prev };
-                      delete updated[mediaId];
-                      return updated;
-                    })}
+                    onRestore={() => {
+                      const changeInfo = mediaChanges[mediaId];
+                      if (changeInfo) {
+                        const currentMedia = getValues("media");
+                        const updated = [...currentMedia];
+                        updated[changeInfo.currentIndex] = changeInfo.originalItem;
+                        setValue("media", updated, { shouldValidate: true, shouldDirty: true });
+                      }
+                      setMediaChanges((prev) => {
+                        const updated = { ...prev };
+                        delete updated[mediaId];
+                        return updated;
+                      });
+                    }}
                     size="small"
                   >
                     <KeyboardDoubleArrowLeft sx={{ mr: 0.5, fontSize: "small" }} />
@@ -305,13 +303,13 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
                   <UndoableActionButton
                     isDirty={isAdded}
                     hasDiff={true}
-                    tooltip="Add this media item from comparison"
+                    tooltip="Restore this media item from comparison"
                     onCopy={() => handleAddMedia(compare.media, mediaId)}
                     onRestore={() => handleUndoAddMedia(mediaId)}
                     size="small"
                   >
                     <Icon sx={{ mr: 0.5, fontSize: "small" }}>add</Icon>
-                    Add
+                    Restore
                   </UndoableActionButton>
                 )}
               </Stack>
@@ -320,9 +318,7 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods,
                 compareMedia={compare?.media ?? null}
                 compareItem={compare}
                 index={current?.index}
-                onCopyMedia={() =>
-                  current && compare && handleReplaceMedia(current.index, compare.media, mediaId)
-                }
+                onCopyMedia={() => current && compare && handleReplaceMedia(current.index, compare.media, mediaId)}
                 compareFormMethods={compareFormMethods}
                 mediaDiffs={mediaDiffs}
               />

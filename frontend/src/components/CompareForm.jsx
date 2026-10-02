@@ -23,7 +23,7 @@ import Link from "src/components/Link";
 import Show from "src/components/Show";
 import { RenderTime } from "src/views/EditItemView";
 
-const UndoableActionButton = ({ isDirty, hasDiff, tooltip, onCopy, onRestore, children, size = "medium" }) => {
+export const UndoableActionButton = ({ isDirty, hasDiff, tooltip, onCopy, onRestore, children, size = "medium" }) => {
   return isDirty ? (
     <Tooltip title="Undo">
       <span>
@@ -284,12 +284,7 @@ const CompareForm = ({
       </Stack>
       {sections}
       <FormSection title="Media">
-        <CompareMediaSection
-          formData={formData}
-          compareData={compareData}
-          compareFormMethods={compareFormMethods}
-          diffFields={diffFields}
-        />
+        <CompareMediaSection formData={formData} compareData={compareData} compareFormMethods={compareFormMethods} />
       </FormSection>
     </Stack>
   );
