@@ -320,7 +320,7 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods 
                 compareMedia={compare?.media ?? null}
                 compareItem={compare}
                 index={current?.index}
-                onCopyMedia={() => current && compare && handleReplaceMedia(current.index, compare.media, mediaId)}
+                onCopyMedia={() => isMatched && handleReplaceMedia(current.index, compare.media, mediaId)}
                 compareFormMethods={compareFormMethods}
                 mediaDiffs={mediaDiffs}
               />
