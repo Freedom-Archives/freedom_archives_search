@@ -161,6 +161,7 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods 
       mediaId,
       current: { media: currentMedia, index: currentIdx },
       compare: compareItem,
+      isMatched: !!compareItem, // Track whether this pair has both sides
     };
   });
 
@@ -172,6 +173,7 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods 
         mediaId,
         current: null,
         compare: compareItem,
+        isMatched: false,
       });
     }
   });
@@ -231,7 +233,7 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods 
   return (
     <Stack direction="column" spacing={3}>
       {allPairs.map((pair, itemNum) => {
-        const { mediaId, current, compare } = pair;
+        const { mediaId, current, compare, isMatched } = pair;
         const isRemoved = removedMediaIds.has(mediaId);
         const isAdded = addedMediaIds.has(mediaId);
         const mediaDiffs = getMediaDiffs(current?.media, compare?.media);
@@ -260,7 +262,7 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods 
                   {isRemoved && " (removed)"}
                   {isAdded && " (added)"}
                 </Typography>
-                {current && compare && (
+                {isMatched && (
                   <UndoableActionButton
                     isDirty={!!mediaChanges[mediaId]}
                     hasDiff={true}
@@ -286,7 +288,7 @@ export const CompareMediaSection = ({ formData, compareData, compareFormMethods 
                     Replace
                   </UndoableActionButton>
                 )}
-                {current && !compare && (
+                {current && !isMatched && (
                   <UndoableActionButton
                     isDirty={isRemoved}
                     hasDiff={true}
