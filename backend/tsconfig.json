@@ -6,7 +6,6 @@
     "allowJs": true,
     "checkJs": false,
     "noEmit": true,
-    "baseUrl": ".",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true
     // "paths": {

@@ -1,4 +1,4 @@
-import { KnexService } from "@feathersjs/knex";
+import { KnexServiceExtended as KnexService } from "#backend/postgresql.js";
 import sinon from "sinon";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 

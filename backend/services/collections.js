@@ -1,4 +1,3 @@
-import { KnexService } from "@feathersjs/knex";
 import { stripHtml } from "string-strip-html";
 
 import {
@@ -10,6 +9,8 @@ import {
   updateThumbnail,
   updateVersionHistory,
 } from "./common_hooks/index.js";
+
+import { KnexServiceExtended as KnexService } from "#backend/postgresql.js";
 
 class Collections extends KnexService {
   constructor(options) {
@@ -134,9 +135,7 @@ export default (function (app) {
     });
     await Promise.all(
       childCollections.map(({ collection_id }) => {
-        return app
-          .service("api/collections")
-          .patch(collection_id, { parent_collection_id: 0 }, { user, transaction });
+        return app.service("api/collections").patch(collection_id, { parent_collection_id: 0 }, { user, transaction });
       }),
     );
     return context;

@@ -1,9 +1,10 @@
-import { KnexService } from "@feathersjs/knex";
 import { cloneDeep } from "lodash-es";
 
 import { sanitizeParams } from "../utils/index.js";
 
 import { rankedSearch } from "./common_hooks/index.js";
+
+import { KnexServiceExtended as KnexService } from "#backend/postgresql.js";
 
 const archive_id = 1;
 class PublicRecords extends KnexService {
@@ -44,7 +45,9 @@ class PublicRecords extends KnexService {
 // };
 
 const lookupFilters = async (context) => {
-  const { service: { Model } } = context;
+  const {
+    service: { Model },
+  } = context;
   const params = await sanitizeParams(context);
   if (!params.provider) {
     return;
@@ -117,7 +120,10 @@ const lookupFilters = async (context) => {
 };
 
 const getNonDigitizedTotal = async (context) => {
-  const { provider, query: { has_digital } } = context.params;
+  const {
+    provider,
+    query: { has_digital },
+  } = context.params;
   const noFilterContext = cloneDeep(context);
   noFilterContext.params.query.has_digital = false;
 
@@ -127,10 +133,10 @@ const getNonDigitizedTotal = async (context) => {
 
     const res = await updatedContext.params.knex
       .clone()
-      .clear('select')
-      .clear('order')
-      .clear('limit')
-      .where('has_digital', false)
+      .clear("select")
+      .clear("order")
+      .clear("limit")
+      .where("has_digital", false)
       .count("record_id")
       .first();
 

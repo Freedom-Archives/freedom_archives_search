@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { BadRequest, MethodNotAllowed } from "@feathersjs/errors";
-import { KnexService } from "@feathersjs/knex";
+
+import { KnexServiceExtended as KnexService } from "#backend/postgresql.js";
 
 // In-memory store for refresh status per type.
 // NOTE: This is per-process and resets on restart.

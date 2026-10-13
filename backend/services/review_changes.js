@@ -1,4 +1,4 @@
-import { KnexService } from "@feathersjs/knex";
+import { KnexServiceExtended as KnexService } from "#backend/postgresql.js";
 
 class ReviewChanges extends KnexService {
   constructor(options) {

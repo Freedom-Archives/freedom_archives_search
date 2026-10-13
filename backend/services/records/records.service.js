@@ -1,6 +1,6 @@
-import { KnexService } from "@feathersjs/knex";
-
 import hooks from "./records.hooks.js";
+
+import { KnexServiceExtended as KnexService } from "#backend/postgresql.js";
 
 class Records extends KnexService {}
 const getOptions = (app) => ({

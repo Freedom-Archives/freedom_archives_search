@@ -1,7 +1,8 @@
-import { KnexService } from "@feathersjs/knex";
 import schema from "@feathersjs/schema";
 
 import { setArchiveData } from "./common_hooks/index.js";
+
+import { KnexServiceExtended as KnexService } from "#backend/postgresql.js";
 
 const { hooks: schemaHooks, resolve, virtual } = schema;
 const settingsResultResolver = resolve({

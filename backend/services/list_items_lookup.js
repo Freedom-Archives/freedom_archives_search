@@ -1,4 +1,4 @@
-import { KnexService } from "@feathersjs/knex";
+import { KnexServiceExtended as KnexService } from "#backend/postgresql.js";
 
 class ListItemsLookup extends KnexService {
   constructor(options) {

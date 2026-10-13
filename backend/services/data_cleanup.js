@@ -1,10 +1,10 @@
-import { KnexService } from "@feathersjs/knex";
 import { readdir } from "fs/promises";
 import path from "path";
 
+import { KnexServiceExtended as KnexService } from "#backend/postgresql.js";
 
 const queries = {
-  'missing_description': `
+  missing_description: `
         SELECT 
           record_id,
           title
@@ -22,7 +22,7 @@ const queries = {
   //         OR a.year > 2025
   //       ORDER BY record_id
   //     `,
-  'missing_format': `
+  missing_format: `
         SELECT DISTINCT
           coalesce(a.call_number, '') as call_number,
           record_id,
@@ -33,7 +33,7 @@ const queries = {
         WHERE format_id is null
         ORDER BY record_id
       `,
-  'missing_copy_number': `
+  missing_copy_number: `
         SELECT DISTINCT
           coalesce(a.call_number, '') as call_number,
           record_id,
@@ -45,8 +45,9 @@ const queries = {
         ORDER BY record_id
       `,
   // 'invalid_call_numbers': "SELECT DISTINCT a.call_number, record_id, b.title FROM media_view a LEFT JOIN records b using (record_id) WHERE call_number_suffix !~ '^[0-9.]{1,5}([A-Z]| +R[0-9])?$' or call_number_suffix is null order by call_number, record_id",
-  'invalid_call_numbers': "SELECT DISTINCT a.call_number, record_id, b.title FROM media_view a LEFT JOIN records b using (record_id) WHERE call_number_suffix is null order by call_number, record_id",
-  'duplicate_call_numbers': `
+  invalid_call_numbers:
+    "SELECT DISTINCT a.call_number, record_id, b.title FROM media_view a LEFT JOIN records b using (record_id) WHERE call_number_suffix is null order by call_number, record_id",
+  duplicate_call_numbers: `
         SELECT 
           coalesce(call_number, '') as call_number,
           array_agg(distinct jsonb_build_object('record_id', record_id, 'title', title)) as records,
@@ -58,7 +59,7 @@ const queries = {
         HAVING count(*) > 1
         ORDER BY count(*) DESC, call_number
       `,
-  'invalid_url': `
+  invalid_url: `
           SELECT DISTINCT
           coalesce(a.call_number, '') as call_number,
   record_id,
@@ -70,16 +71,16 @@ const queries = {
         WHERE url IS NOT NULL AND url != '' AND url !~ '^https\\?://[a-zA-Z0-9:.-]+/'
         ORDER BY record_id
   `,
-  'missing_title': `
+  missing_title: `
         SELECT 
           record_id
         FROM records
         WHERE title IS NULL OR TRIM(title) = ''
         ORDER BY record_id
-      ` ,
-  'missing_thumbnails': async function ({ app }) {
-    const thumbnailDir = path.join(app.get('publicPath'), "img", "thumbnails", "records");
-    const files = await readdir(thumbnailDir).then(files => new Set(files));
+      `,
+  missing_thumbnails: async function ({ app }) {
+    const thumbnailDir = path.join(app.get("publicPath"), "img", "thumbnails", "records");
+    const files = await readdir(thumbnailDir).then((files) => new Set(files));
     const thumbnails = new Set();
     for (const file of files) {
       const match = file.match(/^(\d+)\.jpg$/);
@@ -102,7 +103,7 @@ ORDER BY
   record_id
       `;
   },
-  'featured_no_digital': `
+  featured_no_digital: `
         SELECT
           record_id,
           title,
@@ -116,9 +117,6 @@ ORDER BY
 };
 // WHERE url IS NOT NULL AND url != '' AND url!~ '/^https\\?://([a-zA-Z0-9](\\?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])\\?\\.)+[a-zA-Z]{2,}\\//'
 
-
-
-
 class DataCleanupService extends KnexService {
   constructor(options) {
     super({
@@ -126,7 +124,6 @@ class DataCleanupService extends KnexService {
       name: "data_cleanup",
     });
   }
-
 }
 
 const find = async function (context) {
@@ -140,18 +137,17 @@ const find = async function (context) {
   // Define your cleanup queries here
   // Each type corresponds to a specific SQL query
 
-
   const typeQuery = queries[type];
   if (!typeQuery) {
     throw new Error(`Unknown query type: ${type}`);
   }
-  const querySQL = typeof typeQuery === 'function' ? await typeQuery(context) : typeQuery;
+  const querySQL = typeof typeQuery === "function" ? await typeQuery(context) : typeQuery;
 
   const knex = this.options.Model;
 
   // Get total count
   const countQuery = `SELECT COUNT(*) as total FROM (${querySQL}) as subquery`;
-  const [{ total }] = await knex.raw(countQuery).then(result => result.rows);
+  const [{ total }] = await knex.raw(countQuery).then((result) => result.rows);
 
   // Get paginated data
   const dataQuery = `${querySQL} LIMIT ${$limit} OFFSET ${$skip}`;
@@ -164,7 +160,6 @@ const find = async function (context) {
   };
   return context;
 };
-
 
 export default function (app) {
   const options = {

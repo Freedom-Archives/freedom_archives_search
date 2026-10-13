@@ -1,4 +1,4 @@
-import { KnexService } from "@feathersjs/knex";
+import { KnexServiceExtended as KnexService } from "#backend/postgresql.js";
 // import schema from "@feathersjs/schema";
 
 // const { hooks: schemaHooks, resolve, virtual } = schema;

@@ -1,9 +1,10 @@
-import { KnexService } from "@feathersjs/knex";
 import path from "path";
 import { fileURLToPath } from "url";
 
 import { setArchive } from "./common_hooks/index.js";
 import { generateAndSaveSitemap } from "./sitemap.js";
+
+import { KnexServiceExtended as KnexService } from "#backend/postgresql.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

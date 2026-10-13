@@ -1,6 +1,6 @@
-import { KnexService } from "@feathersjs/knex";
-
 import { rankedSearch } from "./common_hooks/index.js";
+
+import { KnexServiceExtended as KnexService } from "#backend/postgresql.js";
 
 class UnifiedRecords extends KnexService {
   constructor(options) {

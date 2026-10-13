@@ -1,6 +1,6 @@
-import { KnexService } from "@feathersjs/knex";
-
 import { rankedSearch } from "./common_hooks/rankedSearch.js";
+
+import { KnexServiceExtended as KnexService } from "#backend/postgresql.js";
 
 class DuplicateRecords extends KnexService {
   constructor(options) {

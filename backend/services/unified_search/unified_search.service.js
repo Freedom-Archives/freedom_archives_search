@@ -1,6 +1,6 @@
-import { KnexService } from "@feathersjs/knex";
-
 import { rankedSearch } from "../common_hooks/rankedSearch.js";
+
+import { KnexServiceExtended as KnexService } from "#backend/postgresql.js";
 
 class UnifiedSearch extends KnexService {
   constructor(options) {
@@ -32,4 +32,3 @@ export default function (app) {
 
   service.hooks(hooks);
 }
-
