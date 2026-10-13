@@ -9,6 +9,7 @@ import { useConfirm } from "material-ui-confirm";
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { duplicate_records, records } from "src/api";
+import { COMPARE_CONFIG } from "src/components/Compare/compareConfig";
 import CompareForm from "src/components/Compare/CompareForm";
 import { BaseForm } from "src/components/form/BaseForm";
 import { getDefaultValuesFromSchema } from "src/components/form/schemaUtils";
@@ -17,37 +18,6 @@ import { recordSelectFields } from "src/config/constants";
 import validators from "src/hooks/validators";
 import { useAddNotification, useTitle } from "src/stores";
 import { EditItemFooter } from "src/views/EditItemView";
-
-const schema = {
-  title: {},
-  description: { field_type: "textarea" },
-  is_hidden: { field_type: "checkbox" },
-  needs_review: { field_type: "checkbox" },
-  authors: { multiple: true, field_type: "list_item", itemType: "author" },
-  producers: { multiple: true, field_type: "list_item", itemType: "producer" },
-  keywords: { multiple: true, field_type: "list_item", itemType: "keyword" },
-  subjects: { multiple: true, field_type: "list_item", itemType: "subject" },
-  collection: { field_type: "editableItem", service: "collections" },
-  vol_number: {},
-  program: { field_type: "list_item", itemType: "program" },
-  publishers: { multiple: true, field_type: "list_item", itemType: "publisher" },
-  location: {},
-  date_string: {
-    field_type: "datestring",
-    label: "Date",
-    helperText: "MM/DD/YYYY format - enter '00' for unknown day or month",
-  },
-  year_is_circa: { field_type: "checkbox", label: "Approximate Date" },
-  fact_number: {},
-  notes: { field_type: "textarea" },
-};
-
-const fields = [
-  {
-    // title: 'Basic Information',
-    fields: Object.keys(schema),
-  },
-];
 
 const itemLink = (item = "") => {
   const [id_1, id_2] = (item || "").split("|");
@@ -181,14 +151,7 @@ const CompareRecords = ({ id1, id2 }) => {
                 hideMeta: true,
               })}
             >
-              <CompareForm
-                id={id1}
-                compareId={id2}
-                compareData={record2}
-                fields={fields}
-                schema={schema}
-                service="records"
-              />
+              <CompareForm id={id1} compareData={record2} config={COMPARE_CONFIG.record} />
             </ViewContainer>
           );
         }}

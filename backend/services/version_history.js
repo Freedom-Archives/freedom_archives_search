@@ -4,7 +4,7 @@ class VersionHistory extends KnexService {
   constructor(options) {
     super({
       ...options,
-      name: "version_history",
+      name: "version_history_view",
     });
   }
 }
@@ -12,20 +12,15 @@ export default (function (app) {
   const options = {
     id: "version_id",
     Model: app.get("postgresqlClient"),
-    // paginate: { ...app.get("paginate"), max: false },
   };
-  // Initialize our service with any options it requires
-  app.use("/api/version_history", new VersionHistory(options), { methods: ["get", "find", "create"] });
+
+  app.use("/api/version_history", new VersionHistory(options), { methods: ["get", "find"] });
   const service = app.service("api/version_history");
 
   service.hooks({
-    // around: {
-    //     all: [setArchiveData],
-    // },
     before: {
       all: [],
       get: [],
-      create: [],
     },
     after: {},
   });

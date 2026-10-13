@@ -24,6 +24,14 @@ export const routeConfig = {
         path: "collections/:id",
         component: "./views/CollectionView.jsx",
       },
+      {
+        path: "collections/:id/review",
+        component: "./components/ReviewCollection.jsx",
+      },
+      {
+        path: "collections/:id/history/:version_index?",
+        component: "./components/CollectionHistory.jsx",
+      },
     ],
   },
 

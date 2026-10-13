@@ -1,6 +1,6 @@
 import KeyboardDoubleArrowLeft from "@mui/icons-material/KeyboardDoubleArrowLeft";
 import Replay from "@mui/icons-material/Replay";
-import { Button, Grid, Tooltip } from "@mui/material";
+import { Button, Grid, Paper, Stack, Tooltip, Typography } from "@mui/material";
 import { get } from "lodash-es";
 import { FormProvider, useFormContext } from "react-hook-form";
 import { Field } from "src/components/form/Field";
@@ -31,6 +31,20 @@ export const UndoableActionButton = ({
   );
 };
 
+export const FormSection = ({ title, sectionActions, children }) => {
+  return (
+    <Paper sx={{ p: 2 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h6">{title}</Typography>
+        <div>{sectionActions}</div>
+      </Stack>
+      <Stack direction="column" spacing={2}>
+        {children}
+      </Stack>
+    </Paper>
+  );
+};
+
 const CompareRow = ({ children, isDirty, hasDiff, tooltip, onCopy, onRestore, hideAction = false }) => {
   return (
     <Grid container size={12} alignItems={"start"} spacing={2}>
@@ -53,7 +67,7 @@ const CompareRow = ({ children, isDirty, hasDiff, tooltip, onCopy, onRestore, hi
 
 // compareName is the field path in the comparison form, when it differs from name (e.g. array items at
 // different indexes). Pass null for name or compareName to leave that column empty. disabled locks the current
-// field and hides the copy action.
+// field and hides the copy action. tooltip describes the copy action.
 export const CompareField = ({
   name,
   compareName = name,
@@ -63,6 +77,7 @@ export const CompareField = ({
   hasDiff,
   compareFormMethods,
   disabled = false,
+  tooltip = "Replace current value with value from right column",
 }) => {
   const { setValue, resetField, formState } = useFormContext();
   const isDirty = name ? get(formState.dirtyFields, name) : false;
@@ -79,7 +94,7 @@ export const CompareField = ({
     <CompareRow
       isDirty={isDirty}
       hasDiff={hasDiff}
-      tooltip="Replace current value with value from right column"
+      tooltip={tooltip}
       onCopy={handleCopyRight}
       onRestore={() => resetField(name)}
       hideAction={!name || !compareName || disabled}

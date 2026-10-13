@@ -49,6 +49,9 @@ export function ItemsList({ items, type, emptyText, itemAction, link = true, ...
             type={type}
             link={link}
             action={item.action}
+            marker={item.marker}
+            highlight={item.highlight}
+            muted={item.muted}
             {...{ [type]: item }}
             {...props}
           />
@@ -258,11 +261,17 @@ export function Item({
   link,
   dense,
   action,
+  marker,
+  highlight,
+  muted = false,
   missingRecordText = "None",
   index,
   onClick: onClickHandler,
   ...props
 }) {
+  // marker: shown under the thumbnail. highlight: palette color for the row background, as used for changed
+  // fields. muted: greys out the thumbnail and text.
+  const mutedSx = muted ? { opacity: 0.4 } : {};
   const list_item_props = {
     sx: {
       display: "flex",
@@ -293,12 +302,36 @@ export function Item({
   }
 
   return (
-    <ListItem {...props} dense={dense} disablePadding alignItems="flex-start">
+    <ListItem
+      {...props}
+      dense={dense}
+      disablePadding
+      alignItems="flex-start"
+      sx={
+        highlight
+          ? {
+              backgroundColor: `rgba(var(--mui-palette-${highlight}-lightChannel) / 0.1)`,
+              outline: `1px solid var(--mui-palette-${highlight}-main)`,
+              outlineOffset: "-1px",
+              borderRadius: "var(--mui-shape-borderRadius)",
+              overflow: "hidden",
+              my: 0.5,
+              ...props.sx,
+            }
+          : props.sx
+      }
+    >
       <Container {...list_item_props}>
         <ListItemAvatar style={{ minWidth: dense ? 35 : 65 }}>
-          <Thumbnail item={item} width={dense ? 20 : 50} />
+          <Stack alignItems="center" spacing={0.5}>
+            <Box sx={mutedSx}>
+              <Thumbnail item={item} width={dense ? 20 : 50} />
+            </Box>
+            {marker}
+          </Stack>
         </ListItemAvatar>
         <ListItemText
+          sx={mutedSx}
           disableTypography
           primary={id != null ? title : missingRecordText}
           secondary={

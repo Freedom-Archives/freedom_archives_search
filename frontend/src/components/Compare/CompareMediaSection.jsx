@@ -6,7 +6,7 @@ import Typography from "@mui/material/Typography";
 import { useEffect, useState } from "react";
 import { useWatch } from "react-hook-form";
 import { CompareField, UndoableActionButton } from "src/components/Compare/CompareSharedComponents";
-import { getMediaDiffs } from "src/components/Compare/CompareUtils";
+import { getMediaDiffs, pairMediaItems } from "src/components/Compare/CompareUtils";
 import useFormManagerContext from "src/components/form/FormManagerContext";
 
 const MEDIA_FIELD_SPECS = [
@@ -58,7 +58,15 @@ const MediaSummary = ({ media }) => (
   </Stack>
 );
 
-const CompareMediaSection = ({ compareData, compareFormMethods, showOnlyDiffs, groupIndex = 0 }) => {
+// versions: comparing with a saved version, so whole items are "restored" rather than "replaced"
+const CompareMediaSection = ({
+  compareData,
+  compareFormMethods,
+  showOnlyDiffs,
+  groupIndex = 0,
+  copyTooltip,
+  versions = false,
+}) => {
   const {
     formContext: { control, getValues, setValue },
   } = useFormManagerContext();
@@ -73,41 +81,7 @@ const CompareMediaSection = ({ compareData, compareFormMethods, showOnlyDiffs, g
     setMediaDiffs(getMediaDiffs(getValues("media"), compareData?.media));
   }, [compareData, getValues]);
 
-  // Index compare items by media_id for O(1) lookup
-  const compareMediaById = Object.fromEntries(
-    (compareData?.media || []).map((media, index) => [media.media_id, { media, index }]),
-  );
-
-  // Step through current data and look up compare matches. Loaded items always have a media_id; restored items
-  // have a null media_id (so they are created on save) and are matched to their source by the order they were added
-  let addedCount = 0;
-  const allPairs = (currentMedia || []).map((media, index) => {
-    const isAdded = !media.media_id;
-    const mediaId = String(isAdded ? addedMediaIds[addedCount++] : media.media_id);
-    const compareItem = compareMediaById[mediaId] || null;
-
-    return {
-      mediaId,
-      current: { media, index },
-      compare: compareItem,
-      isMatched: !!compareItem, // Track whether this pair has both sides
-      isAdded,
-    };
-  });
-
-  // Add compare-only items (not matched with current)
-  const currentMediaIds = new Set(allPairs.map(({ mediaId }) => mediaId));
-  Object.entries(compareMediaById).forEach(([mediaId, compareItem]) => {
-    if (!currentMediaIds.has(mediaId)) {
-      allPairs.push({
-        mediaId,
-        current: null,
-        compare: compareItem,
-        isMatched: false,
-        isAdded: false,
-      });
-    }
-  });
+  const allPairs = pairMediaItems(currentMedia, compareData?.media, addedMediaIds);
 
   const setMedia = (media) => setValue("media", media, { shouldValidate: true, shouldDirty: true });
 
@@ -167,13 +141,17 @@ const CompareMediaSection = ({ compareData, compareFormMethods, showOnlyDiffs, g
                 {isMatched && !isAdded && !isUnchanged && (
                   <UndoableActionButton
                     isDirty={!!mediaChanges[mediaId]}
-                    tooltip="Replace current item with comparison version"
+                    tooltip={
+                      versions
+                        ? "Restore this item from the comparison version"
+                        : "Replace current item with comparison version"
+                    }
                     onCopy={() => handleReplaceMedia(mediaId, current, compare.media)}
                     onRestore={() => handleUndoReplaceMedia(mediaId, current)}
                     size="small"
                   >
                     <KeyboardDoubleArrowLeft />
-                    Replace
+                    {versions ? "Restore" : "Replace"}
                   </UndoableActionButton>
                 )}
                 {current && !isMatched && (
@@ -218,6 +196,7 @@ const CompareMediaSection = ({ compareData, compareFormMethods, showOnlyDiffs, g
                       hasDiff={itemDiffs.has(path)}
                       disabled={isRemoved}
                       compareFormMethods={compareFormMethods}
+                      tooltip={copyTooltip}
                     />
                   ))}
                 </Grid>

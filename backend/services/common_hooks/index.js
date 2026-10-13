@@ -207,7 +207,6 @@ export const allowDisablePagination = (context) => {
 export const updateVersionHistory = async (context) => {
   const {
     id,
-    app,
     params: {
       provider,
       user,
@@ -222,17 +221,13 @@ export const updateVersionHistory = async (context) => {
   const pk = `${table}_id`;
 
   const current_version = await trx(`unified_${table}s`).where(pk, id).first();
-  await app.service(`api/version_history`).create(
-    {
-      item_id: id,
-      type: table,
-      contributor_name: current_version.contributor_name,
-      contributor_username: current_version.contributor_username,
-      date: current_version.date_modified,
-      data: current_version,
-    },
-    { user, transaction: { trx } },
-  );
+  await trx("version_history").insert({
+    archive_id: user.archive_id,
+    item_id: id,
+    type: table,
+    superseded_by: user.username,
+    data: current_version,
+  });
 
   return context;
 };

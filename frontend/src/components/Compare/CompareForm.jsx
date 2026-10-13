@@ -11,6 +11,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { getServiceID } from "src/api";
 import CompareMediaSection from "src/components/Compare/CompareMediaSection";
 import useFormManagerContext from "src/components/form/FormManagerContext";
 import { getDefaultValuesFromSchema } from "src/components/form/schemaUtils";
@@ -18,22 +19,9 @@ import Link from "src/components/Link";
 import Show from "src/components/Show";
 import { RenderTime } from "src/views/EditItemView";
 
-import { CompareField } from "./CompareSharedComponents";
+import CompareListSection from "./CompareListSection";
+import { CompareField, FormSection } from "./CompareSharedComponents";
 import { compareObjects } from "./CompareUtils";
-
-const FormSection = ({ title, sectionActions, children }) => {
-  return (
-    <Paper sx={{ p: 2 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">{title}</Typography>
-        <div>{sectionActions}</div>
-      </Stack>
-      <Stack direction="column" spacing={2}>
-        {children}
-      </Stack>
-    </Paper>
-  );
-};
 
 const CompareFormSection = ({
   showOnlyDiffs,
@@ -44,6 +32,7 @@ const CompareFormSection = ({
   sectionActions,
   compareFormMethods,
   diffFields,
+  copyTooltip,
 }) => {
   const fields = showOnlyDiffs ? sectionFields.filter((name) => diffFields.has(name)) : sectionFields;
   if (showOnlyDiffs && !fields.length) {
@@ -61,6 +50,7 @@ const CompareFormSection = ({
             groupIndex={groupIndex}
             hasDiff={diffFields.has(name)}
             compareFormMethods={compareFormMethods}
+            tooltip={copyTooltip}
           />
         ))}
       </Grid>
@@ -85,16 +75,11 @@ function DataCard({ title, data, route, id, align = "right" }) {
   );
 }
 
-const CompareForm = ({
-  compareData: inputData,
-  fields,
-  schema,
-  loading,
-  id,
-  service,
-  hideSwap = false,
-  versions = false,
-}) => {
+// config is the item type's entry in COMPARE_CONFIG
+const CompareForm = ({ compareData: inputData, config, loading, id, hideSwap = false, versions = false }) => {
+  const { service, schema, fields, label, hasMedia, relationLists = [] } = config;
+  const itemLabel = label.toLowerCase();
+  const route = `/admin/${service}`;
   const [showOnlyDiffs, setShowOnlyDiffs] = useState(true);
   const [diffFields, setDiffFields] = useState(() => new Set());
   const {
@@ -103,7 +88,7 @@ const CompareForm = ({
   const formData = getValues();
 
   const compareFormMethods = useForm({});
-  const compareId = inputData?.record_id;
+  const compareId = inputData?.[getServiceID(service)];
 
   const mergeBlankValues = () => {
     for (const key of diffFields) {
@@ -121,18 +106,28 @@ const CompareForm = ({
   useEffect(() => {
     if (inputData) {
       const currentData = getDefaultValuesFromSchema(service, getValues());
-      // Only compare fields that exist in the current record
-      const compareData = Object.fromEntries(
-        Object.entries(getDefaultValuesFromSchema(service, inputData)).filter(([key]) => key in currentData),
-      );
+      const compareData = getDefaultValuesFromSchema(service, inputData);
+      // Only compare the displayed fields that exist in the current item (media and related lists have their own
+      // sections)
+      const pickFields = (data) =>
+        Object.fromEntries(
+          Object.keys(schema)
+            .filter((key) => key in currentData && key in data)
+            .map((key) => [key, data[key]]),
+        );
       compareFormMethods.reset(inputData);
-      setDiffFields(compareObjects(currentData, compareData));
+      setDiffFields(compareObjects(pickFields(currentData), pickFields(compareData)));
     }
-  }, [inputData, service, compareFormMethods, getValues]);
+  }, [inputData, service, schema, compareFormMethods, getValues]);
 
   if (loading) {
     return null;
   }
+
+  // Comparing with a saved version restores its values; comparing with another item (duplicates) replaces them
+  const copyTooltip = versions
+    ? "Restore this value from the right column"
+    : "Replace current value with value from right column";
 
   const sections = fields.map((section, groupIndex) => (
     <CompareFormSection
@@ -142,6 +137,7 @@ const CompareForm = ({
       groupIndex={groupIndex}
       diffFields={diffFields}
       compareFormMethods={compareFormMethods}
+      copyTooltip={copyTooltip}
       {...section}
     />
   ));
@@ -149,9 +145,9 @@ const CompareForm = ({
   return (
     <Stack direction="column" spacing={2}>
       <Paper sx={{ p: 2 }}>
-        Compare the current record in the left column with the record values in the right column. Use the
+        Compare the current {itemLabel} in the left column with the {itemLabel} values in the right column. Use the
         <KeyboardDoubleArrowLeft sx={{ verticalAlign: "middle", mx: 0.5 }} />
-        button to replace values in the left column with those from the right.
+        button to {versions ? "restore" : "replace"} values in the left column with those from the right.
         <br />
         <FormControlLabel
           control={<Switch checked={showOnlyDiffs} onChange={(e) => setShowOnlyDiffs(e.target.checked)} />}
@@ -168,7 +164,7 @@ const CompareForm = ({
         </Show>
       </Paper>
       <Stack direction={"row"} spacing={2} alignItems="center" sx={{ justifyContent: "space-between" }}>
-        <DataCard title={formData?.title} data={formData} route="/admin/records" id={id} align="left" />
+        <DataCard title={formData?.title} data={formData} route={route} id={id} align="left" />
         {!hideSwap && (
           <Tooltip title="Swap comparison">
             <Link to={`/admin/site/find-duplicates/${compareId}/${id}`}>
@@ -178,17 +174,24 @@ const CompareForm = ({
             </Link>
           </Tooltip>
         )}
-        <DataCard title={inputData?.title} data={inputData} route="/admin/records" id={compareId} />
+        <DataCard title={inputData?.title} data={inputData} route={route} id={compareId} />
       </Stack>
       {sections}
-      <FormSection title="Media">
-        <CompareMediaSection
-          compareData={inputData}
-          compareFormMethods={compareFormMethods}
-          showOnlyDiffs={showOnlyDiffs}
-          groupIndex={fields.length}
-        />
-      </FormSection>
+      {hasMedia && (
+        <FormSection title="Media">
+          <CompareMediaSection
+            compareData={inputData}
+            compareFormMethods={compareFormMethods}
+            showOnlyDiffs={showOnlyDiffs}
+            groupIndex={fields.length}
+            copyTooltip={copyTooltip}
+            versions={versions}
+          />
+        </FormSection>
+      )}
+      {relationLists.map((list) => (
+        <CompareListSection key={list.name} compareData={inputData} showOnlyDiffs={showOnlyDiffs} {...list} />
+      ))}
     </Stack>
   );
 };
