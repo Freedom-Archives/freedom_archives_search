@@ -269,7 +269,7 @@ function ReviewChanges() {
         field: "title",
         flex: 2,
         renderCell: ({ value, row: { type, id } }) => (
-          <Link target="_blank" to={`/admin/${type.toLowerCase()}s/${id}`}>
+          <Link target="_blank" to={`/admin/${type.toLowerCase()}s/${id}/review`}>
             {value}
           </Link>
         ),
