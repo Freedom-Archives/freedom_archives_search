@@ -1,5 +1,8 @@
 import dayjs from "dayjs";
-import { isObject, isEqual } from "lodash-es";
+import { isObject, isEqual, pick } from "lodash-es";
+import { getDefaultValuesFromSchema } from "src/components/form/schemaUtils";
+
+import { MEDIA_FIELD_SPECS, STATUS_LABELS } from "./compareConfig";
 
 // Mark a path and all of its ancestors as different, e.g. "subjects.0.item" also marks "subjects.0" and "subjects"
 const addDiff = (diffs, path) => {
@@ -121,9 +124,72 @@ export const compareItemLists = (current, compare, idField, ordered = false) => 
   };
 };
 
-// Pair up the current and comparison media items by media_id. addedMediaIds are the comparison media_ids of items
-// restored into the current record, in the order they were added
-export const pairMediaItems = (currentMedia, compareMedia, addedMediaIds = []) => {
+// Put an item from the comparison list back into the current list, after the nearest item that precedes it in the
+// comparison list and is still in the current list (or at the start, if there is none)
+export const insertAfterPredecessor = (list, compareList, item, idField) => {
+  const presentIds = new Set((list || []).filter((entry) => !entry.delete).map((entry) => entry[idField]));
+  const compareIndex = (compareList || []).findIndex((entry) => entry[idField] === item[idField]);
+  const predecessor = (compareList || [])
+    .slice(0, Math.max(compareIndex, 0))
+    .reverse()
+    .find((entry) => presentIds.has(entry[idField]));
+  const index = predecessor ? list.findIndex((entry) => entry[idField] === predecessor[idField]) + 1 : 0;
+  return [...(list || []).slice(0, index), item, ...(list || []).slice(index)];
+};
+
+const STATUS_ORDER = ["added", "removed", "changed", "reordered"];
+
+// Summary of compared items' statuses (null for unchanged items), e.g. "2 added · 1 removed", or "No differences"
+//   labels: a STATUS_LABELS set, for wording other than the statuses themselves
+export const summarizeStatuses = (statuses, labels = STATUS_LABELS.versions) =>
+  STATUS_ORDER.map((status) => [status, statuses.filter((s) => s === status).length])
+    .filter(([, count]) => count)
+    .map(([status, count]) => `${count} ${labels[status].toLowerCase()}`)
+    .join(" · ") || "No differences";
+
+// The schema fields (by name and nested path) that differ between two versions of an item. Only the displayed
+// fields that exist in the current item are compared; media and related lists have their own comparisons.
+export const getFieldDiffs = (service, schema, current, compare) => {
+  const currentData = getDefaultValuesFromSchema(service, current);
+  const compareData = getDefaultValuesFromSchema(service, compare);
+  const pickFields = (data) =>
+    Object.fromEntries(
+      Object.keys(schema)
+        .filter((key) => key in currentData && key in data)
+        .map((key) => [key, data[key]]),
+    );
+  return compareObjects(pickFields(currentData), pickFields(compareData));
+};
+
+const MEDIA_FIELD_PATHS = MEDIA_FIELD_SPECS.map(({ path }) => path);
+const mediaFieldValues = (media) => pick(media, MEDIA_FIELD_PATHS);
+
+// Items restored from a saved version are created as new media, so they no longer share a media_id with their
+// source. Match each current item whose media_id isn't in the comparison version to an unmatched comparison item
+// with the same field values: { current media_id: comparison media_id }
+export const matchMediaByContent = (currentMedia, compareMedia) => {
+  const currentIds = new Set((currentMedia || []).map(({ media_id }) => media_id));
+  const compareIds = new Set((compareMedia || []).map(({ media_id }) => media_id));
+  const unmatched = (compareMedia || []).filter(({ media_id }) => !currentIds.has(media_id));
+  const matches = {};
+  (currentMedia || [])
+    .filter(({ media_id }) => media_id && !compareIds.has(media_id))
+    .forEach((media) => {
+      const index = unmatched.findIndex(
+        (other) => compareObjects(mediaFieldValues(media), mediaFieldValues(other)).size === 0,
+      );
+      if (index !== -1) {
+        matches[media.media_id] = unmatched.splice(index, 1)[0].media_id;
+      }
+    });
+  return matches;
+};
+
+// Pair up the current and comparison media items by media_id. Each pair's mediaId is its comparison media_id, if
+// it has one.
+//   addedMediaIds: the comparison media_ids of items restored into the current record, in the order they were added
+//   contentMatches: a matchMediaByContent result, pairing items with different media_ids
+export const pairMediaItems = (currentMedia, compareMedia, addedMediaIds = [], contentMatches = {}) => {
   // Index compare items by media_id for O(1) lookup
   const compareMediaById = Object.fromEntries(
     (compareMedia || []).map((media, index) => [media.media_id, { media, index }]),
@@ -134,7 +200,7 @@ export const pairMediaItems = (currentMedia, compareMedia, addedMediaIds = []) =
   let addedCount = 0;
   const allPairs = (currentMedia || []).map((media, index) => {
     const isAdded = !media.media_id;
-    const mediaId = String(isAdded ? addedMediaIds[addedCount++] : media.media_id);
+    const mediaId = String(isAdded ? addedMediaIds[addedCount++] : (contentMatches[media.media_id] ?? media.media_id));
     const compareItem = compareMediaById[mediaId] || null;
 
     return {
@@ -162,14 +228,39 @@ export const pairMediaItems = (currentMedia, compareMedia, addedMediaIds = []) =
   return allPairs;
 };
 
-// Calculate diffs for each media item pair, matched by media_id: mediaId -> Set of differing paths
-export const getMediaDiffs = (currentMedia, compareMedia) => {
-  const compareById = Object.fromEntries((compareMedia || []).map((m) => [m.media_id, m]));
-  const diffs = {};
-  (currentMedia || []).forEach((m) => {
-    if (compareById[m.media_id]) {
-      diffs[m.media_id] = compareObjects(m, compareById[m.media_id]);
-    }
-  });
-  return diffs;
+// A media item pair's status relative to the comparison version: "removed" (only in the comparison version,
+// including items since restored into the current record), "added" (only in the current record), "changed" (in
+// both, with differing fields) or null
+export const getMediaStatus = ({ current, isMatched, isAdded }, hasFieldDiffs) => {
+  if (!current || isAdded) {
+    return "removed";
+  }
+  if (!isMatched) {
+    return "added";
+  }
+  return hasFieldDiffs ? "changed" : null;
 };
+
+// Compare the media as loaded, so the comparison stays stable as the media is edited: the items matched by content
+// (see matchMediaByContent) and the differing paths of each matched pair (diffs: mediaId -> Set of paths)
+export const getMediaComparison = (currentMedia, compareMedia) => {
+  const contentMatches = matchMediaByContent(currentMedia, compareMedia);
+  const diffs = Object.fromEntries(
+    pairMediaItems(currentMedia, compareMedia, [], contentMatches)
+      .filter(({ isMatched }) => isMatched)
+      .map(({ mediaId, current, compare }) => [mediaId, compareObjects(current.media, compare.media)]),
+  );
+  return { contentMatches, diffs };
+};
+
+const NO_DIFFS = new Set();
+
+// The media item pairs (see pairMediaItems), each with its differing paths (itemDiffs), the compared fields that
+// differ (diffSpecs) and its status (see getMediaStatus).
+//   comparison: a getMediaComparison result
+export const getMediaPairs = (currentMedia, compareMedia, { contentMatches, diffs }, addedMediaIds) =>
+  pairMediaItems(currentMedia, compareMedia, addedMediaIds, contentMatches).map((pair) => {
+    const itemDiffs = diffs[pair.mediaId] ?? NO_DIFFS;
+    const diffSpecs = MEDIA_FIELD_SPECS.filter(({ path }) => itemDiffs.has(path));
+    return { ...pair, itemDiffs, diffSpecs, status: getMediaStatus(pair, diffSpecs.length > 0) };
+  });

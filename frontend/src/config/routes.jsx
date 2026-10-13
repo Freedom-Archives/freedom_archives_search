@@ -29,7 +29,7 @@ export const routeConfig = {
         component: "./components/ReviewCollection.jsx",
       },
       {
-        path: "collections/:id/history/:version_index?",
+        path: "collections/:id/history/:version_id?",
         component: "./components/CollectionHistory.jsx",
       },
     ],
@@ -84,7 +84,7 @@ export const routeConfig = {
         component: "./components/ReviewRecord.jsx",
       },
       {
-        path: "records/:id/history/:version_index?",
+        path: "records/:id/history/:version_id?",
         component: "./components/RecordHistory.jsx",
       },
     ],

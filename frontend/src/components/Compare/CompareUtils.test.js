@@ -1,7 +1,16 @@
 import dayjs from "dayjs";
 import { describe, expect, it } from "vitest";
 
-import { compareItemLists, compareObjects, getMediaDiffs, pairMediaItems } from "./CompareUtils";
+import {
+  compareItemLists,
+  compareObjects,
+  getMediaComparison,
+  getMediaPairs,
+  insertAfterPredecessor,
+  matchMediaByContent,
+  pairMediaItems,
+  summarizeStatuses,
+} from "./CompareUtils";
 
 describe("compareObjects", () => {
   it("returns no diffs for equal objects", () => {
@@ -199,6 +208,121 @@ describe("compareItemLists", () => {
   });
 });
 
+describe("summarizeStatuses", () => {
+  it("counts each status in a fixed order, ignoring unchanged items", () => {
+    const statuses = ["removed", null, "added", "reordered", "added", null, "changed"];
+    expect(summarizeStatuses(statuses)).toBe("2 added · 1 removed · 1 changed · 1 reordered");
+  });
+
+  it("uses the given status labels", () => {
+    const labels = { added: "Only in this record", removed: "Only in the other record", changed: "Different" };
+    expect(summarizeStatuses(["added", "removed", "removed"], labels)).toBe(
+      "1 only in this record · 2 only in the other record",
+    );
+  });
+
+  it("reports no differences when nothing changed", () => {
+    expect(summarizeStatuses([null, null])).toBe("No differences");
+    expect(summarizeStatuses([])).toBe("No differences");
+  });
+});
+
+describe("getMediaPairs", () => {
+  it("adds each pair's differing fields and status", () => {
+    const current = [
+      { media_id: 1, url: "a" },
+      { media_id: 2, url: "same" },
+      { media_id: 3, url: "c" },
+    ];
+    const compare = [
+      { media_id: 1, url: "b" },
+      { media_id: 2, url: "same" },
+      { media_id: 4, url: "d" },
+    ];
+    const pairs = getMediaPairs(current, compare, getMediaComparison(current, compare));
+
+    expect(pairs.map(({ mediaId, status }) => [mediaId, status])).toEqual([
+      ["1", "changed"],
+      ["2", null],
+      ["3", "added"],
+      ["4", "removed"],
+    ]);
+    expect(pairs[0].diffSpecs.map(({ path }) => path)).toEqual(["url"]);
+    expect(pairs[1].diffSpecs).toEqual([]);
+  });
+
+  it("treats items restored into the current record as removed", () => {
+    const current = [{ media_id: null, url: "b" }];
+    const compare = [{ media_id: 5, url: "b" }];
+    const [pair] = getMediaPairs(current, compare, { contentMatches: {}, diffs: {} }, ["5"]);
+    expect(pair).toMatchObject({ mediaId: "5", isAdded: true, status: "removed" });
+  });
+
+  it("shows an item saved as new media with the same fields as its source as unchanged", () => {
+    const current = [{ media_id: 9, record_id: 1, url: "a" }];
+    const compare = [{ media_id: 5, record_id: 1, url: "a" }];
+    const pairs = getMediaPairs(current, compare, getMediaComparison(current, compare));
+    expect(pairs).toHaveLength(1);
+    expect(pairs[0]).toMatchObject({ mediaId: "5", isMatched: true, isAdded: false, status: null });
+    expect(pairs[0].current.media.media_id).toBe(9);
+  });
+});
+
+describe("matchMediaByContent", () => {
+  const cd = { call_number_item: { item: "CD", list_item_id: 1 }, call_number_suffix: "313" };
+
+  it("matches items with different media_ids and the same compared fields", () => {
+    // media_id, record_id and fields that aren't compared are ignored
+    const current = [{ media_id: 9, record_id: 1, ...cd, extra: "x" }];
+    const compare = [{ media_id: 5, record_id: 2, ...cd }];
+    expect(matchMediaByContent(current, compare)).toEqual({ 9: 5 });
+  });
+
+  it("does not match items whose compared fields differ", () => {
+    const current = [{ media_id: 9, ...cd }];
+    const compare = [{ media_id: 5, ...cd, call_number_suffix: "314" }];
+    expect(matchMediaByContent(current, compare)).toEqual({});
+  });
+
+  it("only matches items that aren't already matched by media_id, each at most once", () => {
+    const current = [
+      { media_id: 1, ...cd },
+      { media_id: 8, ...cd },
+      { media_id: 9, ...cd },
+    ];
+    const compare = [
+      { media_id: 1, ...cd },
+      { media_id: 5, ...cd },
+    ];
+    expect(matchMediaByContent(current, compare)).toEqual({ 8: 5 });
+  });
+
+  it("handles missing media lists", () => {
+    expect(matchMediaByContent(undefined, null)).toEqual({});
+  });
+});
+
+describe("insertAfterPredecessor", () => {
+  const record = (record_id) => ({ record_id });
+  const ids = (list) => list.map((item) => item.record_id);
+
+  it("inserts the item after the nearest preceding comparison item still in the list", () => {
+    const list = [record(1), record(4)];
+    const compare = [record(1), record(2), record(3), record(4)];
+    expect(ids(insertAfterPredecessor(list, compare, record(3), "record_id"))).toEqual([1, 3, 4]);
+  });
+
+  it("inserts at the start when no preceding comparison item is in the list", () => {
+    expect(ids(insertAfterPredecessor([record(2)], [record(1), record(2)], record(1), "record_id"))).toEqual([1, 2]);
+  });
+
+  it("skips preceding items that are flagged for deletion", () => {
+    const list = [record(1), { ...record(2), delete: true }, record(4)];
+    const compare = [record(1), record(2), record(3), record(4)];
+    expect(ids(insertAfterPredecessor(list, compare, record(3), "record_id"))).toEqual([1, 3, 2, 4]);
+  });
+});
+
 describe("pairMediaItems", () => {
   it("pairs items by media_id regardless of position", () => {
     const current = [{ media_id: 1270 }, { media_id: 19188 }];
@@ -242,7 +366,7 @@ describe("pairMediaItems", () => {
   });
 });
 
-describe("getMediaDiffs", () => {
+describe("getMediaComparison", () => {
   it("returns the differing paths for each matched item, keyed by media_id", () => {
     const current = [
       { media_id: 1, url: "a", format_item: { item: "CD", list_item_id: 10 } },
@@ -252,7 +376,7 @@ describe("getMediaDiffs", () => {
       { media_id: 2, url: "same" },
       { media_id: 1, url: "b", format_item: { item: "Tape", list_item_id: 11 } },
     ];
-    const diffs = getMediaDiffs(current, compare);
+    const { diffs } = getMediaComparison(current, compare);
 
     expect(diffs[1].has("url")).toBe(true);
     expect(diffs[1].has("format_item")).toBe(true);
@@ -260,11 +384,17 @@ describe("getMediaDiffs", () => {
   });
 
   it("skips items that only exist on one side", () => {
-    const diffs = getMediaDiffs([{ media_id: 1 }], [{ media_id: 2 }]);
+    const { diffs } = getMediaComparison([{ media_id: 1, url: "a" }], [{ media_id: 2, url: "b" }]);
     expect(diffs).toEqual({});
   });
 
+  it("keys the items matched by content by their comparison media_id", () => {
+    const comparison = getMediaComparison([{ media_id: 9, url: "a" }], [{ media_id: 5, url: "a" }]);
+    expect(comparison.contentMatches).toEqual({ 9: 5 });
+    expect(Object.keys(comparison.diffs)).toEqual(["5"]);
+  });
+
   it("handles missing media lists", () => {
-    expect(getMediaDiffs(undefined, null)).toEqual({});
+    expect(getMediaComparison(undefined, null)).toEqual({ contentMatches: {}, diffs: {} });
   });
 });

@@ -7,7 +7,7 @@ import Typography from "@mui/material/Typography";
 import { Grid } from "@mui/system";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
-import { snapshots, version_history } from "src/api";
+import { getServiceID, services, snapshots, version_history } from "src/api";
 import { BaseForm } from "src/components/form/BaseForm";
 import Show from "src/components/Show";
 import ViewContainer from "src/components/ViewContainer";
@@ -15,16 +15,81 @@ import { useTitle } from "src/stores";
 
 import { COMPARE_CONFIG } from "./compareConfig";
 import CompareForm from "./CompareForm";
+import CompareVersions from "./CompareVersions";
 
-// Compare the current item with a saved version. type is a key of COMPARE_CONFIG (record, collection)
-export const CompareItem = ({ type, id, version, headerElements, reloadData, missingMessage, sideNav, loading }) => {
+// Show a change to an item: the saved version before it (older) compared with the state after it (newer). When
+// newer is null, the state after the change is the current item, which is loaded into an editable form so values
+// can be restored from the older version. Otherwise both are saved versions, compared read-only.
+//   type: a key of COMPARE_CONFIG (record, collection)
+export const CompareItem = ({ type, id, older, newer, headerElements, reloadData, missingMessage, sideNav, loading }) => {
   const config = COMPARE_CONFIG[type];
   const { service, label, selectFields } = config;
   const setTitle = useTitle();
   const [loadingSave, setLoadingSave] = useState(false);
-  const { version_index } = useParams();
+  const { version_id } = useParams();
+  const editable = !newer;
 
-  const backToItemPath = version_index !== undefined ? "../.." : `..`;
+  const backToItemPath = version_id !== undefined ? "../.." : `..`;
+
+  // The editable form sets the title when it loads the item; read-only comparisons look it up
+  useEffect(() => {
+    if (!editable) {
+      services[service]
+        .get(id, { query: { $select: [getServiceID(service), "title"] } })
+        .then((item) => setTitle(item?.title));
+    }
+  }, [editable, service, id, setTitle]);
+
+  const returnButton = {
+    label: `Return to ${label}`,
+    type: "link",
+    icon: <ArrowBack />,
+    variant: "outlined",
+    to: backToItemPath,
+    relative: "path",
+  };
+
+  const renderContent = (comparison) => (
+    <>
+      <Show when={loading}>
+        <LinearProgress />
+      </Show>
+      <Show unless={loading}>
+        <Show when={!older?.version_id}>
+          <Box sx={{ p: 2 }}>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <AlertTitle>{missingMessage}</AlertTitle>
+              <Button
+                variant="contained"
+                startIcon={<ArrowBack />}
+                to={backToItemPath}
+                relative="path"
+                component={Link}
+              >
+                Back to {label}
+              </Button>
+            </Alert>
+          </Box>
+        </Show>
+        <Show when={!!older?.version_id}>
+          <Grid container direction="row" spacing={2}>
+            <Grid size="auto">{sideNav}</Grid>
+            <Grid size={sideNav ? "grow" : 12}>{comparison}</Grid>
+          </Grid>
+        </Show>
+      </Show>
+    </>
+  );
+
+  if (!editable) {
+    return (
+      <Box className="flex-container">
+        <ViewContainer noPaper buttons={[returnButton]} headerElements={headerElements}>
+          {renderContent(<CompareVersions config={config} id={id} newer={newer.data} older={older?.data} />)}
+        </ViewContainer>
+      </Box>
+    );
+  }
 
   return (
     <Box className="flex-container">
@@ -44,109 +109,83 @@ export const CompareItem = ({ type, id, version, headerElements, reloadData, mis
           },
         }}
       >
-        {({ submitForm }) => {
-          return (
-            <ViewContainer
-              service={service}
-              noPaper
-              buttons={[
-                {
-                  label: `Return to ${label}`,
-                  type: "link",
-                  icon: <ArrowBack />,
-                  variant: "outlined",
-                  to: backToItemPath,
-                  relative: "path",
+        {({ submitForm }) => (
+          <ViewContainer
+            service={service}
+            noPaper
+            buttons={[
+              returnButton,
+              {
+                label: "Save Changes",
+                color: "primary",
+                icon: <Save />,
+                loading: loadingSave,
+                onClick: async () => {
+                  setLoadingSave(true);
+                  try {
+                    await submitForm();
+                    await reloadData?.();
+                  } finally {
+                    setLoadingSave(false);
+                  }
                 },
-                {
-                  label: "Save Changes",
-                  color: "primary",
-                  icon: <Save />,
-                  loading: loadingSave,
-                  onClick: async () => {
-                    setLoadingSave(true);
-                    try {
-                      await submitForm();
-                      await reloadData?.();
-                    } finally {
-                      setLoadingSave(false);
-                    }
-                  },
-                },
-              ]}
-              headerElements={headerElements}
-            >
-              <Show when={loading}>
-                <LinearProgress />
-              </Show>
-              <Show unless={loading}>
-                <Show when={!version?.version_id}>
-                  <Box sx={{ p: 2 }}>
-                    <Alert severity="info" sx={{ mb: 2 }}>
-                      <AlertTitle>{missingMessage}</AlertTitle>
-                      <Button
-                        variant="contained"
-                        startIcon={<ArrowBack />}
-                        to={backToItemPath}
-                        relative="path"
-                        component={Link}
-                      >
-                        Back to {label}
-                      </Button>
-                    </Alert>
-                  </Box>
-                </Show>
-                <Show when={!!version?.version_id}>
-                  <Grid container direction="row" spacing={2}>
-                    <Grid size="auto">{sideNav}</Grid>
-                    <Grid size={sideNav ? "grow" : 12}>
-                      <CompareForm id={id} compareData={version.data} config={config} hideSwap={true} versions={true} />
-                    </Grid>
-                  </Grid>
-                </Show>
-              </Show>
-            </ViewContainer>
-          );
-        }}
+              },
+            ]}
+            headerElements={headerElements}
+          >
+            {renderContent(
+              <CompareForm id={id} compareData={older?.data} config={config} hideSwap={true} versions={true} />,
+            )}
+          </ViewContainer>
+        )}
       </BaseForm>
     </Box>
   );
 };
 
-// Browse the saved versions of an item, comparing each with the current item
+// Browse the changes made to an item, most recent first. Each change is a saved version (the item before the
+// change) compared with the state after it: the next version, or for the most recent change, the current item.
+// Changes are addressed by the version_id of the version before them.
 export const ItemHistory = ({ type }) => {
-  const [version, setVersion] = useState({});
   const [versions, setVersions] = useState(null);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { id, version_index } = useParams();
+  const { id, version_id } = useParams();
   const { pathname } = useLocation();
 
   const fetchVersions = useCallback(async () => {
-    setLoading(true);
     const versions = await version_history.find({ query: { item_id: id, type, $sort: { superseded_at: 1 } } });
-
-    setVersions(versions.map((v, version_index) => ({ version_index, ...v })));
+    setVersions(versions);
+    return versions;
   }, [id, type]);
 
   useEffect(() => {
     setVersions(null);
-
     fetchVersions();
   }, [id, fetchVersions]);
 
+  // Links to a change, relative to the current route (which may not include a version_id yet)
+  const changePath = (versionId) => (version_id !== undefined ? `../${versionId}` : `${versionId}`);
+
+  // Open the most recent change by default
   useEffect(() => {
     const hasNavigated = window.location.pathname !== pathname;
-    if (versions?.length > 0 && !version_index && !hasNavigated) {
-      const latestVersionId = versions.at(-1)?.version_index;
-      navigate({ pathname: `${latestVersionId}` }, { relative: "route", replace: true });
+    if (versions?.length > 0 && version_id === undefined && !hasNavigated) {
+      navigate({ pathname: `${versions.at(-1).version_id}` }, { relative: "route", replace: true });
     }
-  }, [versions, version_index, navigate, id, pathname]);
+  }, [versions, version_id, navigate, pathname]);
 
-  useEffect(() => {
-    setLoading(versions === null);
-    setVersion(versions?.[version_index] || versions?.at(-1) || {});
-  }, [versions, version_index]);
+  const selectedIndex = versions?.findIndex((version) => String(version.version_id) === version_id) ?? -1;
+  const olderIndex = selectedIndex >= 0 ? selectedIndex : (versions?.length ?? 0) - 1;
+  const older = versions?.[olderIndex];
+  const newer = versions?.[olderIndex + 1] ?? null;
+
+  // After saving the most recent change, a new change has been made: show it
+  const reloadAndShowLatest = async () => {
+    const latest = (await fetchVersions()).at(-1);
+    if (latest) {
+      navigate(changePath(latest.version_id), { relative: "path" });
+    }
+  };
 
   const sideNav = (
     <Paper variant="outlined">
@@ -155,27 +194,18 @@ export const ItemHistory = ({ type }) => {
       </Typography>
       <List dense sx={{ maxHeight: "60vh", overflowY: "auto" }}>
         {versions?.toReversed()?.map((version) => (
-          <ListItem key={version.version_index} disableGutters disablePadding>
+          <ListItem key={version.version_id} disableGutters disablePadding>
             <ListItemButton
               dense
-              selected={version.version_index === Number(version_index)}
+              selected={version.version_id === older?.version_id}
               component={Link}
-              to={`../${version.version_index}`}
+              to={changePath(version.version_id)}
               relative="path"
             >
-              {/* Each version is the item as last modified at data.date_modified, until the edit that superseded it */}
+              {/* The change was made at superseded_at, replacing this version */}
               <ListItemText
-                primary={new Date(version.data?.date_modified).toLocaleString()}
-                secondary={
-                  <>
-                    {version.data?.contributor_name || "Unknown"}
-                    <br />
-                    <Typography component="span" variant="caption" color="text.secondary">
-                      Replaced {new Date(version.superseded_at).toLocaleString()} by{" "}
-                      {version.superseded_by_name || version.superseded_by || "Unknown"}
-                    </Typography>
-                  </>
-                }
+                primary={new Date(version.superseded_at).toLocaleString()}
+                secondary={version.superseded_by_name || version.superseded_by || "Unknown"}
               />
             </ListItemButton>
           </ListItem>
@@ -187,12 +217,13 @@ export const ItemHistory = ({ type }) => {
   return (
     <CompareItem
       type={type}
-      version={version}
+      older={older}
+      newer={newer}
       id={id}
-      reloadData={fetchVersions}
+      reloadData={reloadAndShowLatest}
       missingMessage={"No changes found"}
       sideNav={sideNav}
-      loading={loading}
+      loading={versions === null}
     />
   );
 };
@@ -241,7 +272,8 @@ export const ItemReview = ({ type }) => {
   return (
     <CompareItem
       type={type}
-      version={version}
+      older={version}
+      newer={null}
       id={id}
       missingMessage={
         lastPublishDate

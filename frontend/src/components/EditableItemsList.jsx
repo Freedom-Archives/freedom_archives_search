@@ -269,8 +269,9 @@ export function Item({
   onClick: onClickHandler,
   ...props
 }) {
-  // marker: shown under the thumbnail. highlight: palette color for the row background, as used for changed
-  // fields. muted: greys out the thumbnail and text.
+  // marker: shown at the top left of the row, before the thumbnail (null reserves the space, to line up with marked
+  // rows). highlight: palette color for the row background, as used for changed fields. muted: greys out the
+  // thumbnail and text.
   const mutedSx = muted ? { opacity: 0.4 } : {};
   const list_item_props = {
     sx: {
@@ -322,13 +323,15 @@ export function Item({
       }
     >
       <Container {...list_item_props}>
+        {marker !== undefined && (
+          <ListItemAvatar style={{ minWidth: dense ? 35 : 65 }}>
+            <Box sx={mutedSx}>{marker}</Box>
+          </ListItemAvatar>
+        )}
         <ListItemAvatar style={{ minWidth: dense ? 35 : 65 }}>
-          <Stack alignItems="center" spacing={0.5}>
-            <Box sx={mutedSx}>
-              <Thumbnail item={item} width={dense ? 20 : 50} />
-            </Box>
-            {marker}
-          </Stack>
+          <Box sx={mutedSx}>
+            <Thumbnail item={item} width={dense ? 20 : 50} />
+          </Box>
         </ListItemAvatar>
         <ListItemText
           sx={mutedSx}

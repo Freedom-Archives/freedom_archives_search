@@ -1,50 +1,22 @@
-import AddCircleOutline from "@mui/icons-material/AddCircleOutline";
-import KeyboardDoubleArrowLeft from "@mui/icons-material/KeyboardDoubleArrowLeft";
-import RemoveCircleOutline from "@mui/icons-material/RemoveCircleOutline";
-import SwapVert from "@mui/icons-material/SwapVert";
-import { Box, Grid, Tooltip, Typography } from "@mui/material";
-import { get } from "lodash-es";
+import { get, omit } from "lodash-es";
 import { useEffect, useState } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
-import { CollectionsList, RecordsList } from "src/components/EditableItemsList";
 
-import { FormSection, UndoableActionButton } from "./CompareSharedComponents";
-import { compareItemLists } from "./CompareUtils";
+import CompareItemList from "./CompareItemList";
+import { CompareChangesSection, ItemActionButton } from "./CompareSharedComponents";
+import { compareItemLists, insertAfterPredecessor, summarizeStatuses } from "./CompareUtils";
 
-// Each column scrolls past this height
-const LIST_MAX_HEIGHT = 400;
-
-const STATUS_ICONS = {
-  added: { Icon: AddCircleOutline, color: "success", tooltip: () => "Added" },
-  removed: { Icon: RemoveCircleOutline, color: "error", tooltip: () => "Removed" },
-  reordered: {
-    Icon: SwapVert,
-    color: "warning",
-    tooltip: (otherPosition) => `Reordered (#${otherPosition} in comparison)`,
-  },
-};
-
-// Status icon, shown under the item's thumbnail
-const StatusIcon = ({ status, otherPosition }) => {
-  const { Icon, color, tooltip } = STATUS_ICONS[status];
-  return (
-    <Tooltip title={tooltip(otherPosition)}>
-      <Icon fontSize="small" color={color} aria-label={tooltip(otherPosition)} />
-    </Tooltip>
-  );
-};
-
-// Compares a list of related items (e.g. a collection's records) as a whole: shows each side's items, with the
-// added, removed and moved items marked on the current side, and lets the entire list be restored from the
-// comparison version
+// Compares a list of related items (e.g. a collection's records) in the form with the comparison version. Removed
+// items can be restored and added items removed one at a time, or the entire list restored from the comparison
+// version.
 const CompareListSection = ({ name, label, type, ordered = false, compareData, showOnlyDiffs }) => {
   const { getValues, setValue, formState } = useFormContext();
   const currentList = useWatch({ name });
   const [diff, setDiff] = useState(null);
   const idField = `${type}_id`;
 
-  // Calculate the original diff once per comparison, so the section, its summary and the Restore/undo button stay
-  // stable when the list is restored
+  // Calculate the original diff once per comparison. The list shows the original changes, so each row keeps its
+  // status and action (and undo) as items are restored or removed.
   useEffect(() => {
     setDiff(compareItemLists(getValues(name), compareData?.[name], idField, ordered));
   }, [compareData, name, idField, ordered, getValues]);
@@ -53,111 +25,103 @@ const CompareListSection = ({ name, label, type, ordered = false, compareData, s
     return null;
   }
 
-  const { onlyCurrent, onlyCompare, reorderedCount } = diff;
-  const hasDiff = onlyCurrent.length > 0 || onlyCompare.length > 0 || reorderedCount > 0;
+  const statuses = diff.currentWithRemoved.map(({ status }) => status);
+  const hasDiff = statuses.some(Boolean);
   if (showOnlyDiffs && !hasDiff) {
     return null;
   }
 
-  // The columns show the list as it is now, so they reflect a Restore
+  const list = currentList || [];
+  const compareList = compareData?.[name] || [];
   const isDirty = !!get(formState.dirtyFields, name);
-  const liveDiff = compareItemLists(currentList, compareData?.[name], idField, ordered);
-  const liveHasDiff = liveDiff.onlyCurrent.length > 0 || liveDiff.onlyCompare.length > 0 || liveDiff.reorderedCount > 0;
-  // Once the lists match (e.g. after a Restore), show them in full rather than empty columns
-  const showAllItems = !showOnlyDiffs || !liveHasDiff;
+  const liveDiff = compareItemLists(list, compareList, idField, ordered);
+  const setList = (value) => setValue(name, value, { shouldValidate: true, shouldDirty: true });
+  const liveItems = new Map(list.map((item) => [item[idField], item]));
 
   // Items are removed on save by flagging them, so keep the current-only items in the list, marked for deletion
-  const handleReplace = () => {
-    const replaced = [...(compareData?.[name] || []), ...onlyCurrent.map((item) => ({ ...item, delete: true }))];
-    setValue(name, replaced, { shouldValidate: true, shouldDirty: true });
+  const handleRestoreAll = () => {
+    setList([...compareList, ...diff.onlyCurrent.map((item) => ({ ...item, delete: true }))]);
   };
 
   // resetField only works on registered inputs, so restore the loaded value directly
-  const handleUndo = () => {
-    setValue(name, get(formState.defaultValues, name), { shouldValidate: true, shouldDirty: true });
+  const handleUndoAll = () => {
+    setList(get(formState.defaultValues, name));
   };
 
-  const summary = [
-    onlyCurrent.length && `${onlyCurrent.length} added`,
-    onlyCompare.length && `${onlyCompare.length} removed`,
-    reorderedCount && `${reorderedCount} reordered`,
-  ].filter(Boolean);
+  const restoreItem = (item) => setList(insertAfterPredecessor(list, compareList, item, idField));
+  const undoRestoreItem = (id) => setList(list.filter((item) => item[idField] !== id));
+  const removeItem = (id) => setList(list.map((item) => (item[idField] === id ? { ...item, delete: true } : item)));
+  const undoRemoveItem = (id) => setList(list.map((item) => (item[idField] === id ? omit(item, "delete") : item)));
 
-  const ItemsList = type === "record" ? RecordsList : CollectionsList;
-  // The current side shows every change, including the removed items in their former place, marked with icons
-  const columns = [
-    {
-      title: "Current version",
-      count: liveDiff.current.length,
-      entries: liveDiff.currentWithRemoved,
-      showStatus: true,
-    },
-    { title: "Comparison version", count: liveDiff.compare.length, entries: liveDiff.compare, showStatus: false },
-  ];
+  // Rows the user has acted on are highlighted as changed, like edited fields
+  const entries = diff.currentWithRemoved.map((entry) => {
+    const id = entry.item[idField];
+    const liveItem = liveItems.get(id);
+    if (entry.status === "removed") {
+      const restored = !!liveItem && !liveItem.delete;
+      return {
+        ...entry,
+        muted: !restored,
+        highlight: restored ? "success" : "info",
+        rowAction: (
+          <ItemActionButton
+            action="restore"
+            isDirty={restored}
+            tooltip="Restore this item"
+            onAction={() => restoreItem(entry.item)}
+            onUndo={() => undoRestoreItem(id)}
+          />
+        ),
+      };
+    }
+    if (entry.status === "added") {
+      const removed = !!liveItem?.delete;
+      return {
+        ...entry,
+        muted: removed,
+        highlight: removed ? "success" : "info",
+        rowAction: (
+          <ItemActionButton
+            action="remove"
+            isDirty={removed}
+            tooltip="Remove this item"
+            onAction={() => removeItem(id)}
+            onUndo={() => undoRemoveItem(id)}
+          />
+        ),
+      };
+    }
+    return entry;
+  });
 
   return (
-    <FormSection
+    <CompareChangesSection
       title={label}
-      sectionActions={
-        hasDiff && (
-          <UndoableActionButton
-            isDirty={isDirty}
-            tooltip={`Restore the ${label.toLowerCase()} from the right column`}
-            onCopy={handleReplace}
-            onRestore={handleUndo}
-            size="small"
-          >
-            <KeyboardDoubleArrowLeft />
-            Restore
-          </UndoableActionButton>
-        )
+      summary={summarizeStatuses(statuses)}
+      note={
+        isDirty &&
+        (liveDiff.currentWithRemoved.some(({ status }) => status)
+          ? "unsaved changes"
+          : "restored from the comparison version")
+      }
+      restoreAll={
+        hasDiff && {
+          isDirty,
+          tooltip: `Restore all ${label.toLowerCase()} from the comparison version`,
+          onAction: handleRestoreAll,
+          onUndo: handleUndoAll,
+        }
       }
     >
-      <Typography variant="body2" color="text.secondary">
-        {hasDiff ? summary.join(" · ") : "No differences"}
-        {isDirty && !liveHasDiff && (
-          <Typography component="span" variant="body2" color="success.main">
-            {" "}
-            · restored from the comparison version
-          </Typography>
-        )}
-      </Typography>
-      <Grid container spacing={2}>
-        {columns.map(({ title, count, entries, showStatus }) => {
-          const shown = showAllItems ? entries : entries.filter(({ status }) => status);
-          const items = shown.map(({ item, position, otherPosition, status }) => {
-            const marked = showStatus && status;
-            return {
-              ...item,
-              // On the current side, changed items get a status icon and the changed-field highlight, and removed
-              // items are greyed out
-              marker: marked && <StatusIcon status={status} otherPosition={otherPosition} />,
-              highlight: marked ? "info" : undefined,
-              muted: marked && status === "removed",
-              action:
-                ordered && position
-                  ? () => (
-                      <Typography variant="caption" color="text.secondary">
-                        #{position}
-                      </Typography>
-                    )
-                  : undefined,
-            };
-          });
-          return (
-            <Grid key={title} size={6}>
-              <Typography variant="subtitle2">
-                {title} ({count})
-              </Typography>
-              {/* Long lists (a collection can have hundreds of records) scroll within the section */}
-              <Box sx={{ maxHeight: LIST_MAX_HEIGHT, overflowY: "auto", px: 0.5 }}>
-                <ItemsList {...{ [`${type}s`]: items }} emptyText="None" dense />
-              </Box>
-            </Grid>
-          );
-        })}
-      </Grid>
-    </FormSection>
+      <CompareItemList
+        entries={entries}
+        type={type}
+        ordered={ordered}
+        showAll={!showOnlyDiffs}
+        title="Current version"
+        count={liveDiff.current.length}
+      />
+    </CompareChangesSection>
   );
 };
 
