@@ -51,32 +51,26 @@ export const CompareItem = ({ type, id, older, newer, headerElements, reloadData
 
   const renderContent = (comparison) => (
     <>
-      <Show when={loading}>
-        <LinearProgress />
+      <Show when={!loading && !older?.version_id}>
+        <Box sx={{ p: 2 }}>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <AlertTitle>{missingMessage}</AlertTitle>
+            <Button variant="contained" startIcon={<ArrowBack />} to={backToItemPath} relative="path" component={Link}>
+              Back to {label}
+            </Button>
+          </Alert>
+        </Box>
       </Show>
-      <Show unless={loading}>
-        <Show when={!older?.version_id}>
-          <Box sx={{ p: 2 }}>
-            <Alert severity="info" sx={{ mb: 2 }}>
-              <AlertTitle>{missingMessage}</AlertTitle>
-              <Button
-                variant="contained"
-                startIcon={<ArrowBack />}
-                to={backToItemPath}
-                relative="path"
-                component={Link}
-              >
-                Back to {label}
-              </Button>
-            </Alert>
-          </Box>
-        </Show>
-        <Show when={!!older?.version_id}>
-          <Grid container direction="row" spacing={2}>
-            <Grid size="auto">{sideNav}</Grid>
-            <Grid size={sideNav ? "grow" : 12}>{comparison}</Grid>
+      <Show when={!!older?.version_id}>
+        <Grid container direction="row" spacing={2}>
+          <Grid size="auto">{sideNav}</Grid>
+          <Grid size={sideNav ? "grow" : 12}>
+            <Show when={loading}>
+              <LinearProgress />
+            </Show>
+            {!loading && comparison}
           </Grid>
-        </Show>
+        </Grid>
       </Show>
     </>
   );
@@ -151,9 +145,23 @@ export const ItemHistory = ({ type }) => {
   const navigate = useNavigate();
   const { id, version_id } = useParams();
   const { pathname } = useLocation();
+  const [[olderData, newerData], setVersionData] = useState([null, null]);
+
+  const selectedIndex = versions?.findIndex((version) => String(version.version_id) === version_id) ?? -1;
+  const olderIndex = selectedIndex >= 0 ? selectedIndex : (versions?.length ?? 0) - 1;
+  const older = versions?.[olderIndex];
+  const newer = versions?.[olderIndex + 1] ?? null;
+  const loadingData = !!older && olderData?.version_id !== older?.version_id;
 
   const fetchVersions = useCallback(async () => {
-    const versions = await version_history.find({ query: { item_id: id, type, $sort: { superseded_at: 1 } } });
+    const versions = await version_history.find({
+      query: {
+        item_id: id,
+        type,
+        $select: ["version_id", "item_id", "type", "superseded_at", "superseded_by", "superseded_by_name"],
+        $sort: { superseded_at: 1 },
+      },
+    });
     setVersions(versions);
     return versions;
   }, [id, type]);
@@ -162,6 +170,27 @@ export const ItemHistory = ({ type }) => {
     setVersions(null);
     fetchVersions();
   }, [id, fetchVersions]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchVersionData = async () => {
+      const versionData = await version_history.find({
+        query: {
+          version_id: { $in: [older?.version_id, newer?.version_id].filter(Boolean) },
+          $select: ["data"],
+          $sort: { version_id: 1 },
+        },
+      });
+      if (!ignore) setVersionData(versionData);
+    };
+    if (older?.version_id) {
+      fetchVersionData();
+    }
+    return () => {
+      ignore = true;
+    };
+  }, [older, newer]);
 
   // Links to a change, relative to the current route (which may not include a version_id yet)
   const changePath = (versionId) => (version_id !== undefined ? `../${versionId}` : `${versionId}`);
@@ -173,11 +202,6 @@ export const ItemHistory = ({ type }) => {
       navigate({ pathname: `${versions.at(-1).version_id}` }, { relative: "route", replace: true });
     }
   }, [versions, version_id, navigate, pathname]);
-
-  const selectedIndex = versions?.findIndex((version) => String(version.version_id) === version_id) ?? -1;
-  const olderIndex = selectedIndex >= 0 ? selectedIndex : (versions?.length ?? 0) - 1;
-  const older = versions?.[olderIndex];
-  const newer = versions?.[olderIndex + 1] ?? null;
 
   // After saving the most recent change, a new change has been made: show it
   const reloadAndShowLatest = async () => {
@@ -193,7 +217,7 @@ export const ItemHistory = ({ type }) => {
         History
       </Typography>
       <List dense sx={{ maxHeight: "60vh", overflowY: "auto" }}>
-        {versions?.toReversed()?.map((version) => (
+        {versions?.toReversed().map((version) => (
           <ListItem key={version.version_id} disableGutters disablePadding>
             <ListItemButton
               dense
@@ -217,20 +241,20 @@ export const ItemHistory = ({ type }) => {
   return (
     <CompareItem
       type={type}
-      older={older}
-      newer={newer}
+      older={olderData}
+      newer={newerData}
       id={id}
       reloadData={reloadAndShowLatest}
       missingMessage={"No changes found"}
       sideNav={sideNav}
-      loading={versions === null}
+      loading={versions === null || loadingData}
     />
   );
 };
 
 // Compare the current item with its version as of the last site publish
 export const ItemReview = ({ type }) => {
-  const [version, setVersion] = useState({});
+  const [version, setVersion] = useState(null);
   const [lastPublishDate, setLastPublishDate] = useState(null);
   const [loading, setLoading] = useState(false);
   const { id } = useParams();
