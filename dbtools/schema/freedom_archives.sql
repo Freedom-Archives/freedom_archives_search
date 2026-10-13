@@ -1709,6 +1709,34 @@ CREATE INDEX IF NOT EXISTS duplicate_list_items_sim_idx
 CREATE INDEX IF NOT EXISTS duplicate_list_items_id_1_idx 
   ON freedom_archives.duplicate_list_items (type, archive_id, list_item_id_1, list_item_id_2);
 
+CREATE TABLE
+  freedom_archives.version_history (
+      version_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      archive_id INTEGER NOT NULL,
+      item_id INTEGER NOT NULL,
+      TYPE TEXT NOT NULL CHECK (
+          TYPE IN ('record', 'collection')
+      ),
+      superseded_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+      superseded_by TEXT,
+      DATA jsonb NOT NULL
+  );
+
+CREATE INDEX version_history_item_idx ON freedom_archives.version_history (
+    TYPE,
+    item_id,
+    superseded_at
+);
+
+CREATE VIEW
+    freedom_archives.version_history_view AS
+SELECT
+    vh.*,
+    u.full_name AS superseded_by_name
+FROM
+    freedom_archives.version_history vh
+    LEFT JOIN freedom_archives.users u ON u.username=vh.superseded_by;
+
 -- CREATE INDEX IF NOT EXISTS duplicate_records_similarity_idx 
 --   ON duplicate_records (similarity_score DESC);
 
