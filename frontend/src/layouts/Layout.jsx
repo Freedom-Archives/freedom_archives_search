@@ -170,7 +170,7 @@ function NavBar() {
   const { isAuthenticated } = useAuth();
   return (
     <AppBar
-      color={import.meta.env.DEV ? "warning" : "publicPrimary"}
+      color={import.meta.env.DEV ? "warning" : "primary"}
       position="fixed"
       elevation={0}
       sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
