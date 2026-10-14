@@ -93,13 +93,15 @@ import {
 // };
 
 const prepData = async (context) => {
-  const { data, method } = context;
+  const { data, method, service } = context;
   if (data && Object.keys(data).length) {
     const relation_data = {};
     // remove calculated fields
     Object.keys(data).forEach((key) => {
       if (
-        ["call_numbers", "formats", "qualitys", "generations", "siblings", "relationships"].includes(key) ||
+        ["call_numbers", "formats", "qualitys", "generations", "siblings", "relationships", "date_digitized"].includes(
+          key,
+        ) ||
         key.match("_search")
       ) {
         delete data[key];
@@ -115,6 +117,9 @@ const prepData = async (context) => {
         }
       });
       delete data.date_string;
+    }
+    if (data.media?.some((m) => m.url && !m.delete)) {
+      data.date_digitized = method === "create" ? new Date() : service.Model.raw("COALESCE(date_digitized, now())");
     }
     // Stash relation data out of data object
     ["program"].forEach((key) => {
@@ -149,6 +154,7 @@ const prepData = async (context) => {
   }
   return context;
 };
+
 const updateRelations = async (context) => {
   const {
     app,

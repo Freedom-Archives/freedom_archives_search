@@ -447,6 +447,14 @@ export function Record({ id /*  embedded = false */ }) {
                           <Grid size={12}>
                             <Field name="description" multiline rows={4} />
                           </Grid>
+                          <Grid container sx={(theme) => ({ minWidth: `calc(100% + 100px + ${theme.spacing(2)})` })}>
+                            <Grid size={6}>
+                              <Field field_type="checkbox" name="is_hidden" />
+                            </Grid>
+                            <Grid size={6}>
+                              <Field field_type="checkbox" name="needs_review" />
+                            </Grid>
+                          </Grid>
                         </Grid>
                         {
                           <Grid
@@ -460,16 +468,26 @@ export function Record({ id /*  embedded = false */ }) {
                             <Show unless={newRecord}>
                               <Thumbnail item={record} width={100} since={thumbnailSince} />
                               <UpdateThumbnailButton setThumbnailSince={setThumbnailSince} />
+                              <Show when={!!record?.date_digitized}>
+                                <Typography
+                                  variant="caption"
+                                  align="center"
+                                  sx={{ whiteSpace: "wrap" }}
+                                  color="textSecondary"
+                                >
+                                  <Tooltip
+                                    title={`First digitized ${new Date(record?.date_digitized)?.toLocaleString()}`}
+                                  >
+                                    First digitized <br />
+                                    {new Date(record?.date_digitized)?.toLocaleDateString()}
+                                  </Tooltip>
+                                </Typography>
+                              </Show>
                             </Show>
                           </Grid>
                         }
                       </Stack>
                     </Grid>
-                    <FieldRow>
-                      <Field field_type="checkbox" name="is_hidden" />
-                      <Field field_type="checkbox" name="needs_review" />
-                    </FieldRow>
-
                     <FieldRow>
                       <Field name="authors" multiple field_type="list_item" itemType="author" create />
                       <Field name="producers" multiple field_type="list_item" itemType="producer" create />

@@ -201,6 +201,7 @@ CREATE TABLE IF NOT EXISTS _unified_records (
     keyword_ids integer[],
     producer_ids integer[],
     publisher_ids integer[],
+    date_digitized timestamptz,
     CONSTRAINT _unified_records_pkey PRIMARY KEY (record_id)
 );
 
@@ -283,6 +284,8 @@ CREATE INDEX IF NOT EXISTS records_title ON _unified_records (title);
 --
 
 CREATE INDEX IF NOT EXISTS records_year ON _unified_records (year);
+
+CREATE INDEX IF NOT EXISTS records_date_digitized ON _unified_records (date_digitized);
 
 CREATE INDEX IF NOT EXISTS records_ancestor_collection_ids_idx ON _unified_records USING gin (ancestor_collection_ids);
 --
@@ -700,6 +703,7 @@ CREATE TABLE IF NOT EXISTS records (
     date_created timestamptz,
     date_modified timestamptz,
     fact_number text,
+    date_digitized timestamptz,
     CONSTRAINT records_pkey PRIMARY KEY (record_id),
     CONSTRAINT records_archive_id_fkey FOREIGN KEY (archive_id) REFERENCES archives (archive_id) ON DELETE CASCADE,
     CONSTRAINT records_collection_id_fkey FOREIGN KEY (collection_id) REFERENCES collections (collection_id) ON DELETE SET DEFAULT,
@@ -1420,7 +1424,8 @@ CREATE OR REPLACE VIEW unified_records AS
     subjects.item_ids AS subject_ids,
     keywords.item_ids AS keyword_ids,
     producers.item_ids AS producer_ids,
-    publishers.item_ids AS publisher_ids
+    publishers.item_ids AS publisher_ids,
+    a.date_digitized
    FROM records a
      JOIN record_summaries b USING (record_id)
      JOIN _unified_collections c USING (collection_id)

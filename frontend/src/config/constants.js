@@ -33,6 +33,7 @@ export const recordSelectFields = [
   "creator_name",
   "contributor_name",
   "relationships",
+  "date_digitized",
 ];
 
 export const collectionSelectFields = [

@@ -25,6 +25,7 @@ const filter_types = {
   record_type: { input: "simpleSelect", match: "exact" },
   notes: { input: "text", match: "fuzzy" },
   is_hidden: { input: "checkbox", match: "exact", label: "Hidden" },
+  has_digital: { input: "checkbox", match: "exact", label: "Digitized" },
   fact_number: { input: "text", match: "fuzzy" },
 };
 
@@ -34,6 +35,7 @@ const sort_options = {
   date_modified: { label: "Date Modified", sort: { date_modified: 1, rank: 1, title: -1 }, sort_desc: true },
   date_created: { label: "Date Created", sort: { date_created: 1, rank: 1, title: -1 }, sort_desc: true },
   call_number: { label: "Call Number", sort: { call_numbers: 1, rank: -1, title: 1 } },
+  date_digitized: { label: "Date Digitized", sort: { date_digitized: 1, rank: 1, title: -1 }, sort_desc: true },
 };
 
 export function Records({ embedded, itemAction, filter, forcedFilter, useStore }) {
