@@ -45,8 +45,25 @@ const queries = {
         ORDER BY record_id
       `,
   // 'invalid_call_numbers': "SELECT DISTINCT a.call_number, record_id, b.title FROM media_view a LEFT JOIN records b using (record_id) WHERE call_number_suffix !~ '^[0-9.]{1,5}([A-Z]| +R[0-9])?$' or call_number_suffix is null order by call_number, record_id",
-  invalid_call_numbers:
-    "SELECT DISTINCT a.call_number, record_id, b.title FROM media_view a LEFT JOIN records b using (record_id) WHERE call_number_suffix is null order by call_number, record_id",
+  invalid_call_numbers: `
+      SELECT DISTINCT
+        a.call_number,
+        record_id,
+        b.title
+      FROM
+        media_view a
+        LEFT JOIN unified_records b USING (record_id)
+      WHERE
+        (
+          call_number_suffix IS NULL
+          OR call_number_id IS NULL
+          OR TRIM(call_number_suffix)=''
+        )
+        AND record_type!='Document'
+      ORDER BY
+        call_number,
+        record_id
+  `,
   duplicate_call_numbers: `
         SELECT 
           coalesce(call_number, '') as call_number,
