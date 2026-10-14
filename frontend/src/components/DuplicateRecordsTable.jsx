@@ -1,8 +1,17 @@
+import { InputLabel, MenuItem, Select } from "@mui/material";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import {
+  GridFooter,
+  GridFooterContainer,
+  gridPaginationModelSelector,
+  gridRowCountSelector,
+  useGridApiContext,
+  useGridSelector,
+} from "@mui/x-data-grid";
 import { cloneDeep } from "lodash-es";
 import { lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
@@ -118,6 +127,41 @@ function DuplicateRecords() {
   return <DuplicateRecordsTable items={items} loading={loading} />;
 }
 
+function CustomFooter(props) {
+  const apiRef = useGridApiContext();
+  const paginationModel = useGridSelector(apiRef, gridPaginationModelSelector);
+  const rowCount = useGridSelector(apiRef, gridRowCountSelector);
+
+  const totalPages = Math.ceil(rowCount / paginationModel.pageSize);
+
+  return (
+    <GridFooterContainer>
+      <Box sx={{ ml: 1, display: "flex", alignItems: "baseline", gap: 1 }}>
+        <InputLabel sx={{ mb: 0 }}>Current page</InputLabel>
+        <Select
+          label="Go to page"
+          variant="standard"
+          disableUnderline
+          size="small"
+          value={paginationModel.page}
+          onChange={(e) => {
+            apiRef.current.setPage(Number(e.target.value));
+          }}
+          sx={{ mb: 0 }}
+        >
+          {Array.from({ length: totalPages }, (_, i) => (
+            <MenuItem key={i} value={i}>
+              {i + 1}
+            </MenuItem>
+          ))}
+        </Select>
+      </Box>
+      {/* Retain default footer elements (row counts, pagination) */}
+      <GridFooter {...props} />
+    </GridFooterContainer>
+  );
+}
+
 function DuplicateRecordsTable({ items, loading }) {
   const useStore = queryStores["duplicate_records"];
   const total = useStore((s) => s.search.total);
@@ -217,6 +261,9 @@ function DuplicateRecordsTable({ items, loading }) {
         paginationModel={paginationModel}
         sortModel={sortModel}
         pageSizeOptions={[PAGE_SIZE_DEFAULT]}
+        slots={{
+          footer: CustomFooter,
+        }}
       />
     </Box>
   );
