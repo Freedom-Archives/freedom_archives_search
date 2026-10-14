@@ -229,6 +229,18 @@ export const updateVersionHistory = async (context) => {
     data: current_version,
   });
 
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - 5);
+
+  await trx("version_history")
+    .where({
+      archive_id: user.archive_id,
+      item_id: id,
+      type: table,
+    })
+    .andWhere("superseded_at", "<", date)
+    .delete();
+
   return context;
 };
 
