@@ -169,7 +169,12 @@ export function Logout() {
 function NavBar() {
   const { isAuthenticated } = useAuth();
   return (
-    <AppBar color="primary" position="fixed" elevation={0} sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+    <AppBar
+      color={import.meta.env.DEV ? "warning" : "publicPrimary"}
+      position="fixed"
+      elevation={0}
+      sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
+    >
       <Toolbar className="topnav" variant="dense" sx={{ gap: 1 }}>
         <Breadcrumbs />
         {isAuthenticated && <QuickSearch />}

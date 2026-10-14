@@ -1,4 +1,4 @@
-import { createTheme, extendTheme } from "@mui/material/styles";
+import { createTheme } from "@mui/material/styles";
 import { startCase } from "lodash-es";
 
 const xSmallFontSize = "0.7rem";
@@ -36,8 +36,7 @@ const xSmallInputStyles = {
     fontSize: xSmallInputFontSize,
     padding: "6px 8px",
   },
-  "& .MuiInputBase-input.MuiSelect-select, & .MuiInputBase-input.MuiAutocomplete-input":
-  {
+  "& .MuiInputBase-input.MuiSelect-select, & .MuiInputBase-input.MuiAutocomplete-input": {
     padding: xSmallAutocompleteInputPadding,
   },
   "& .MuiInputBase-adornedStart": { paddingLeft: "8px" },
@@ -61,9 +60,9 @@ const xSmallInputStyles = {
 
 const baseTheme = createTheme();
 
-export const theme = extendTheme(baseTheme, {
+export const theme = createTheme(baseTheme, {
   cssVariables: {
-    colorSchemeSelector: 'class',
+    colorSchemeSelector: "class",
   },
   // colorSchemes: {
   //   dark: true,
@@ -206,32 +205,32 @@ export const theme = extendTheme(baseTheme, {
 
       styleOverrides: {
         root: {
-          ...['success', 'warning', 'info', 'error'].reduce((acc, color) => {
-            const colorName = `color${startCase(color)}`
+          ...["success", "warning", "info", "error"].reduce((acc, color) => {
+            const colorName = `color${startCase(color)}`;
             const style = {
               [`& .MuiFormLabel-${colorName}`]: {
                 color: `var(--mui-palette-${color}-main)`,
               },
               [`&:has(.MuiCheckbox-${colorName}).MuiFormControl-root`]: {
-                width: '100%',
+                width: "100%",
                 outline: `1px solid var(--mui-palette-${color}-main)`,
-                borderRadius: '2px',
+                borderRadius: "2px",
                 backgroundColor: `rgba(var(--mui-palette-${color}-lightChannel) / 0.1) !important`,
               },
               [`& .MuiCheckbox-${colorName}`]: {
                 color: `var(--mui-palette-${color}-main)`,
               },
               [`& .MuiInputBase-${colorName}`]: {
-                '&': {
+                "&": {
                   backgroundColor: `rgba(var(--mui-palette-${color}-lightChannel) / 0.1) !important`,
                 },
-                '& .MuiOutlinedInput-notchedOutline': {
+                "& .MuiOutlinedInput-notchedOutline": {
                   borderColor: `var(--mui-palette-${color}-main)`,
                 },
               },
-            }
+            };
 
-            return { ...acc, ...style }
+            return { ...acc, ...style };
           }, {}),
         },
       },
