@@ -6,6 +6,15 @@ set -e
 
 MIGRATIONS_PATH="../migrations"
 
+source ./read_pg_config.sh "development"
+
+export PGSCHEMA_PLAN_PASSWORD="$PGPASSWORD"
+export PGSCHEMA_PLAN_USER="$PGUSER"
+export PGSCHEMA_PLAN_DB="$PGDATABASE"_plan
+export PGSCHEMA_PLAN_PORT="$PGPORT"
+export PGSCHEMA_PLAN_HOST="$PGHOST"
+
+
 if [ "$ACTION" = "dump" ]; then
   source ./read_pg_config.sh development
   for i in freedom_archives public_search; do
