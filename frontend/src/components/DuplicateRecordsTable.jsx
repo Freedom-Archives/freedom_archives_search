@@ -1,4 +1,4 @@
-import { InputLabel, MenuItem, Select } from "@mui/material";
+import { InputLabel, MenuItem, Paper, Select, TextField } from "@mui/material";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -16,8 +16,10 @@ import { cloneDeep } from "lodash-es";
 import { lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { duplicate_records } from "src/api";
-// import Manage from "src/components/Manage";
 import { queryStores } from "src/stores";
+import { useDebouncedCallback } from "use-debounce";
+
+import Show from "./Show";
 
 const DataGrid = lazy(() => import("@mui/x-data-grid").then((module) => ({ default: module.DataGrid })));
 
@@ -26,7 +28,6 @@ const defaultSort = { field: "title_1", sort: "asc" };
 const PAGE_SIZE_DEFAULT = 100;
 
 const sort_options = {
-  // relevance: { label: "Search Relevance", sort: { rank: -1, display_order: 1, title: 1, date_created: -1 } },
   title_1: {
     label: "Record Name",
     sort: { title_1: 1, relevance: -1 },
@@ -36,12 +37,6 @@ const sort_options = {
     sort: { title_2: 1, relevance: -1 },
   },
   relevance: { label: "Similarity Score", sort: { relevance: -1, title_1: 1 } },
-  // date_modified: {
-  //   label: "Date Modified",
-  //   sort: { date_modified: -1, display_order: 1, rank: -1, title: 1 },
-  // },
-  // date_created: { label: "Date Created", sort: { date_created: -1, display_order: 1, rank: -1, title: 1 } },
-  // call_number: { label: "Call Number", sort: { call_number: 1, display_order: 1, rank: -1, title: 1 } },
 };
 
 const getRowId = (row) => row.duplicate_record_id;
@@ -69,7 +64,6 @@ function DuplicateRecords() {
   const useStore = queryStores["duplicate_records"];
   const [items, setItems] = useState([]);
   const offset = useStore((s) => s.search.offset);
-  // const filter = useStore((s) => s.search.filter);
   const setSearch = useStore((s) => s.setSearch);
   const [loading, setLoading] = useState(true);
   const sort = useStore((s) => s.search.filter.sort);
@@ -96,7 +90,13 @@ function DuplicateRecords() {
 
     query.$sort = cloneDeep(sort_options[sort].sort);
     if (search) {
-      query.$fullText = search;
+      const $ilike = `%${search}%`;
+      query.$or = [
+        { title_1: { $ilike } },
+        { title_2: { $ilike } },
+        { call_numbers_text_1: { $ilike } },
+        { call_numbers_text_2: { $ilike } },
+      ];
     }
     if (sort_desc) {
       for (const key in query.$sort) {
@@ -107,21 +107,28 @@ function DuplicateRecords() {
   }, []);
 
   const lookupItems = useCallback(
-    async ({ offset, page_size, sort, sortDesc, search }) => {
+    async ({ offset, page_size, sort, sortDesc, search, signal }) => {
       setLoading(true);
       const query = createQuery({ sort, sort_desc: sortDesc, offset, search });
       query.$limit = page_size;
       query.$skip = offset;
-      const { data, total } = await duplicate_records.find({ query });
-      setItems(data);
-      setSearch({ total, query, page_size, offset });
-      setLoading(false);
+      try {
+        const { data, total } = await duplicate_records.find({ query, connection: { signal } });
+        setItems(data);
+        setSearch({ total, query, page_size, offset });
+        setLoading(false);
+      } catch (error) {
+        if (signal.aborted) return; // superseded by a newer request; it owns `loading`
+        setLoading(false);
+      }
     },
     [createQuery, setSearch],
   );
 
   useEffect(() => {
-    lookupItems({ offset, sort, sortDesc, page_size: PAGE_SIZE_DEFAULT, search });
+    const controller = new AbortController();
+    lookupItems({ offset, sort, sortDesc, page_size: PAGE_SIZE_DEFAULT, search, signal: controller.signal });
+    return () => controller.abort();
   }, [offset, sort, sortDesc, search, lookupItems]);
 
   return <DuplicateRecordsTable items={items} loading={loading} />;
@@ -136,27 +143,28 @@ function CustomFooter(props) {
 
   return (
     <GridFooterContainer>
-      <Box sx={{ ml: 1, display: "flex", alignItems: "baseline", gap: 1 }}>
-        <InputLabel sx={{ mb: 0 }}>Current page</InputLabel>
-        <Select
-          label="Go to page"
-          variant="standard"
-          disableUnderline
-          size="small"
-          value={paginationModel.page}
-          onChange={(e) => {
-            apiRef.current.setPage(Number(e.target.value));
-          }}
-          sx={{ mb: 0 }}
-        >
-          {Array.from({ length: totalPages }, (_, i) => (
-            <MenuItem key={i} value={i}>
-              {i + 1}
-            </MenuItem>
-          ))}
-        </Select>
-      </Box>
-      {/* Retain default footer elements (row counts, pagination) */}
+      <Show when={totalPages > 0}>
+        <Box sx={{ ml: 1, display: "flex", alignItems: "baseline", gap: 1 }}>
+          <InputLabel sx={{ mb: 0 }}>Current page</InputLabel>
+          <Select
+            label="Go to page"
+            variant="standard"
+            disableUnderline
+            size="small"
+            value={paginationModel.page}
+            onChange={(e) => {
+              apiRef.current.setPage(Number(e.target.value));
+            }}
+            sx={{ mb: 0 }}
+          >
+            {Array.from({ length: totalPages }, (_, i) => (
+              <MenuItem key={i} value={i}>
+                {i + 1}
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+      </Show>
       <GridFooter {...props} />
     </GridFooterContainer>
   );
@@ -170,6 +178,8 @@ function DuplicateRecordsTable({ items, loading }) {
   const setSearch = useStore((s) => s.setSearch);
   const sortField = useStore((s) => s.search.filter.sort);
   const sortDesc = useStore((s) => s.search.filter.sort_desc);
+  const search = useStore((s) => s.search.filter.search);
+  const [searchValue, setSearchValue] = useState(search ?? "");
 
   const setPaginationModel = useCallback(
     ({ page, pageSize }) => {
@@ -182,11 +192,28 @@ function DuplicateRecordsTable({ items, loading }) {
   const setSortModel = useCallback(
     (model) => {
       const { field, sort } = model?.[0] || defaultSort;
-      setSearch({ filter: { sort: field, sort_desc: sort === "desc" }, offset: 0 });
+      setSearch({ filter: { sort: field, sort_desc: sort === "desc", search }, offset: 0 });
       setSearchIndex(0);
     },
-    [setSearch, setSearchIndex],
+    [search, setSearch, setSearchIndex],
   );
+
+  const setSearchTerm = useDebouncedCallback(
+    useCallback(
+      (term) => {
+        setSearch({ filter: { search: term, sort: sortField, sort_desc: sortDesc }, offset: 0 });
+        setSearchIndex(0);
+      },
+      [setSearch, setSearchIndex, sortDesc, sortField],
+    ),
+    300,
+  );
+
+  const handleSearchChange = (event) => {
+    const value = event.target.value;
+    setSearchValue(value);
+    setSearchTerm(value);
+  };
 
   const navigate = useNavigate();
 
@@ -203,7 +230,6 @@ function DuplicateRecordsTable({ items, loading }) {
         headerName: "Compare",
         justifyContent: "center",
         align: "center",
-        // width:'auti',
         renderCell: (params) => (
           <Box sx={{ height: "100%", display: "flex", alignItems: "center" }}>
             <Button
@@ -242,7 +268,18 @@ function DuplicateRecordsTable({ items, loading }) {
   );
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", maxHeight: "100%", minHeight: 0 }}>
+    <Stack direction="column" spacing={2} sx={{ maxHeight: "100%", minHeight: 0 }}>
+      <Paper>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <TextField
+            size="small"
+            label="Filter Titles or Call Numbers"
+            value={searchValue}
+            onChange={handleSearchChange}
+            sx={{ width: 360, maxWidth: "100%" }}
+          />
+        </Stack>
+      </Paper>
       <DataGrid
         rows={items}
         getRowId={getRowId}
@@ -265,7 +302,7 @@ function DuplicateRecordsTable({ items, loading }) {
           footer: CustomFooter,
         }}
       />
-    </Box>
+    </Stack>
   );
 }
 

@@ -1,0 +1,41 @@
+
+export const up = async function (knex) {
+    
+
+    await knex.raw(`SET LOCAL search_path = 'freedom_archives';`);
+    await knex.raw(`
+CREATE OR REPLACE VIEW duplicate_records AS
+ SELECT (a.record_id || '|'::text) || b.record_id AS duplicate_record_id,
+    a.record_id AS record_id_1,
+    b.record_id AS record_id_2,
+    a.title AS title_1,
+    b.title AS title_2,
+    a.collection_title AS collection_1,
+    b.collection_title AS collection_2,
+    round(similarity(jsonb_build_object('title', a.title, 'description', a.description, 'authors', a.authors_text, 'producers', a.producers_text, 'keywords', a.keywords_text, 'subjects', a.subjects_text, 'collection', a.collection_title, 'vol_number', a.vol_number, 'program', a.program, 'publishers', a.publishers_text, 'location', a.location, 'date', a.date_string, 'fact_number', a.fact_number, 'notes', a.notes)::text, jsonb_build_object('title', b.title, 'description', b.description, 'authors', b.authors_text, 'producers', b.producers_text, 'keywords', b.keywords_text, 'subjects', b.subjects_text, 'collection', b.collection_title, 'vol_number', b.vol_number, 'program', b.program, 'publishers', b.publishers_text, 'location', b.location, 'date', b.date_string, 'fact_number', b.fact_number, 'notes', b.notes)::text)::numeric, 3) AS relevance,
+    a.fulltext || b.fulltext AS fulltext,
+    a.call_numbers AS call_numbers_1,
+    b.call_numbers AS call_numbers_2,
+    a.search_text || b.search_text AS search_text,
+    (EXISTS ( SELECT 1
+           FROM duplicate_records_ignore dri
+          WHERE dri.record_id_1 = a.record_id AND dri.record_id_2 = b.record_id OR dri.record_id_1 = b.record_id AND dri.record_id_2 = a.record_id)) AS is_ignored,
+    a.call_numbers_text AS call_numbers_text_1,
+    b.call_numbers_text AS call_numbers_text_2
+   FROM _unified_records a
+     JOIN _unified_records b ON a.title = b.title AND a.date = b.date AND a.record_id < b.record_id;
+    `);
+    await knex.raw(`SET LOCAL search_path = 'freedom_archives';`);
+    
+
+    await knex.raw(`SET LOCAL search_path = 'public_search';`);
+    await knex.raw(`
+
+    `);
+    await knex.raw(`SET LOCAL search_path = 'freedom_archives';`);
+    
+};
+  
+export const down = async function (_knex) {
+};
+  

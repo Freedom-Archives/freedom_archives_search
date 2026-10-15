@@ -32,6 +32,10 @@ function Authentication() {
     app.hooks({
       error: {
         all: (context) => {
+          if (context.params?.connection?.signal?.aborted) {
+            return context; // request was cancelled on purpose; caller handles it
+          }
+
           if (context.error && context.error.name === "NotAuthenticated") {
             displayError(context.error);
             // setError(context.error.message);

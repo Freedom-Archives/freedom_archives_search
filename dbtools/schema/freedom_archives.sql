@@ -1633,7 +1633,9 @@ SELECT
       AND dri.record_id_2=b.record_id) OR
       (dri.record_id_1=b.record_id
       AND dri.record_id_2=a.record_id)
-  ) AS is_ignored
+  ) AS is_ignored,
+  a.call_numbers_text AS call_numbers_text_1,
+  b.call_numbers_text AS call_numbers_text_2
 FROM
   _unified_records a
   JOIN _unified_records b ON a.title=b.title
